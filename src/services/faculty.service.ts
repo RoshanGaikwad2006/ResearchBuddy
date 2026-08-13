@@ -77,6 +77,80 @@ export const updateFacultyApi = async (
   return response.data;
 };
 
+export interface ResearchIdentityResponse {
+  facultyId: string;
+  userId: string;
+  name: string;
+  email: string;
+  designation: string;
+  departmentId: string;
+  departmentName: string;
+  departmentCode: string;
+  scholarProfileUrl?: string;
+  scholarAuthorId?: string;
+  scholarAvatarUrl?: string;
+  orcid?: string;
+  researcherId?: string;
+  otherResearcherId?: string;
+  institutionalAffiliation: string;
+  researchInterests: string[];
+  profileCompleteness: number;
+  missingProfileFields: string[];
+  status: {
+    scholar: string;
+    orcid: string;
+    researcherId: string;
+    wos: string;
+  };
+  metrics: {
+    publicationCount: number;
+    journalCount: number;
+    conferenceCount: number;
+    totalCitations: number;
+    hIndex: number;
+    i10Index: number;
+    citationSources: {
+      googleScholar: number;
+      openAlex: number;
+      crossref: number;
+      webOfScience: string;
+    };
+  };
+  lastSyncTime?: string;
+}
+
+export const fetchMyResearchIdentity = async (): Promise<ResearchIdentityResponse> => {
+  const response = await apiClient.get<ResearchIdentityResponse>("/faculty/me/research-identity");
+  return response.data;
+};
+
+export const updateMyResearchIdentity = async (data: {
+  departmentId?: string;
+  scholarInput?: string;
+  orcidInput?: string;
+  researcherId?: string;
+  otherResearcherId?: string;
+  institutionalAffiliation?: string;
+  researchInterests?: string[];
+}): Promise<ResearchIdentityResponse> => {
+  const response = await apiClient.put<ResearchIdentityResponse>("/faculty/me/research-identity", data);
+  return response.data;
+};
+
+export const syncMyResearchProfile = async (): Promise<{ message: string }> => {
+  const response = await apiClient.post<{ message: string }>("/faculty/me/sync-research");
+  return response.data;
+};
+
+export const updateAuthorAffiliationApi = async (
+  researchId: string,
+  authorId: string,
+  affiliation: string
+): Promise<any> => {
+  const response = await apiClient.patch(`/researches/${researchId}/authors/${authorId}/affiliation`, { affiliation });
+  return response.data;
+};
+
 export const deleteFacultyApi = async (id: string): Promise<{ message: string }> => {
   const response = await apiClient.delete<{ message: string }>(`/faculty/${id}`);
   return response.data;

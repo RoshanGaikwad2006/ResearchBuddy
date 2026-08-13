@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Building2,
   CheckCircle2,
@@ -11,58 +11,122 @@ import {
   BookOpen,
   Award,
   Edit,
+  ShieldAlert,
+  Info,
+  ExternalLink,
+  Layers,
+  FileText,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useMyFacultyProfile, useUpdateFaculty } from "../hooks/useFaculty";
-import { useSyncMyScholar } from "@/features/scholar/hooks/useScholar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  fetchMyResearchIdentity,
+  updateMyResearchIdentity,
+  syncMyResearchProfile,
+  updateAuthorAffiliationApi,
+  ResearchIdentityResponse,
+} from "@/services/faculty.service";
+import { useMyResearchList } from "@/features/research/hooks/useResearch";
 
 export function FacultyProfileCard() {
-  const { data: facultyRes, isLoading, refetch } = useMyFacultyProfile();
-  const updateMutation = useUpdateFaculty();
-  const syncScholarMutation = useSyncMyScholar();
-
-  const faculty = facultyRes?.faculty;
+  const [identity, setIdentity] = useState<ResearchIdentityResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [scholarUrl, setScholarUrl] = useState("");
-  const [orcid, setOrcid] = useState("");
+  const [scholarInput, setScholarInput] = useState("");
+  const [orcidInput, setOrcidInput] = useState("");
+  const [researcherId, setResearcherId] = useState("");
   const [interestsText, setInterestsText] = useState("");
+  const [affiliationInput, setAffiliationInput] = useState("");
+
+  const [activeTab, setActiveTab] = useState<"ALL" | "JOURNAL" | "CONFERENCE">("ALL");
+
+  // Editing Author Affiliation Modal State
+  const [editingAuthor, setEditingAuthor] = useState<{ researchId: string; authorId: string; authorName: string; currentAffiliation: string } | null>(null);
+  const [manualAffiliationText, setManualAffiliationText] = useState("");
+
+  const { data: myPubsData, refetch: refetchPubs } = useMyResearchList();
+
+  const loadIdentity = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetchMyResearchIdentity();
+      setIdentity(res);
+    } catch (err) {
+      console.error("Failed to load research identity:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadIdentity();
+  }, []);
 
   const handleStartEdit = () => {
-    if (faculty) {
-      setScholarUrl(faculty.scholarUrl || "");
-      setOrcid(faculty.orcid || "");
-      setInterestsText((faculty.researchInterests || []).join(", "));
+    if (identity) {
+      setScholarInput(identity.scholarProfileUrl || identity.scholarAuthorId || "");
+      setOrcidInput(identity.orcid || "");
+      setResearcherId(identity.researcherId || "");
+      setInterestsText((identity.researchInterests || []).join(", "));
+      setAffiliationInput(identity.institutionalAffiliation || "");
     }
     setIsEditing(true);
   };
 
   const handleSaveProfile = async () => {
-    if (!faculty) return;
+    if (!identity) return;
     const researchInterests = interestsText
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
 
-    await updateMutation.mutateAsync({
-      id: faculty.id,
-      data: {
-        scholarUrl: scholarUrl || undefined,
-        orcid: orcid || undefined,
+    try {
+      const updated = await updateMyResearchIdentity({
+        scholarInput: scholarInput || undefined,
+        orcidInput: orcidInput || undefined,
+        researcherId: researcherId || undefined,
+        institutionalAffiliation: affiliationInput || undefined,
         researchInterests,
-      },
-    });
-
-    setIsEditing(false);
-    refetch();
+      });
+      setIdentity(updated);
+      setIsEditing(false);
+    } catch (err: any) {
+      alert(err.message || "Failed to update research identity");
+    }
   };
 
   const handleSyncScholar = async () => {
-    await syncScholarMutation.mutateAsync(faculty?.scholarUrl || undefined);
-    refetch();
+    try {
+      setIsSyncing(true);
+      await syncMyResearchProfile();
+      await loadIdentity();
+      await refetchPubs();
+    } catch (err: any) {
+      alert(err.message || "Failed to sync profile");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSaveAuthorAffiliation = async () => {
+    if (!editingAuthor || !manualAffiliationText.trim()) return;
+    try {
+      await updateAuthorAffiliationApi(
+        editingAuthor.researchId,
+        editingAuthor.authorId,
+        manualAffiliationText.trim()
+      );
+      setEditingAuthor(null);
+      refetchPubs();
+    } catch (err: any) {
+      alert(err.message || "Failed to update affiliation");
+    }
   };
 
   if (isLoading) {
@@ -73,243 +137,341 @@ export function FacultyProfileCard() {
     );
   }
 
-  if (!faculty) {
+  if (!identity) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
         <UserCheck className="mx-auto h-8 w-8 text-muted-foreground" />
         <p className="mt-2 text-sm font-medium text-foreground">No Faculty Profile Found</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Your user account is not currently linked to a Faculty record. Please contact your institution administrator.
-        </p>
       </div>
     );
   }
 
-  const isCooldownActive = false;
-  const remainingMinutes = 0;
+  const pubsList = myPubsData?.items || [];
+  const journalPubs = pubsList.filter((p) => p.journal || !p.conference);
+  const conferencePubs = pubsList.filter((p) => p.conference && !p.journal);
+  const filteredPubs = activeTab === "JOURNAL" ? journalPubs : activeTab === "CONFERENCE" ? conferencePubs : pubsList;
 
   return (
-    <div className="space-y-5">
-      {/* 1. PERSONAL INFORMATION CARD */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+    <div className="space-y-6">
+      {/* 1. PERSONAL RESEARCH IDENTITY HEADER CARD */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-soft space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            {faculty.scholarAvatarUrl ? (
+            {identity.scholarAvatarUrl ? (
               <img
-                src={faculty.scholarAvatarUrl}
-                alt={faculty.user.name}
+                src={identity.scholarAvatarUrl}
+                alt={identity.name}
                 className="h-16 w-16 rounded-2xl object-cover border border-primary/20 shadow-soft"
               />
             ) : (
-              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-primary text-xl font-bold text-primary-foreground shadow-soft">
-                {faculty.user.name.charAt(0)}
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-xl font-bold text-primary border border-primary/20">
+                {identity.name.charAt(0)}
               </div>
             )}
             <div>
-              <h2 className="text-xl font-semibold text-foreground">{faculty.user.name}</h2>
-              <p className="text-sm font-medium text-primary">{faculty.designation}</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-foreground">{identity.name}</h2>
+                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {identity.departmentCode}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-primary mt-0.5">{identity.designation}</p>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Building2 className="h-3.5 w-3.5" />
-                  {faculty.department?.name || "General Department"}
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
+                  {identity.departmentName}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Mail className="h-3.5 w-3.5" />
-                  {faculty.user.email}
+                  {identity.email}
                 </span>
-                <span>•</span>
-                <span>ID: {faculty.employeeId}</span>
               </div>
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleStartEdit}
-            className="gap-1.5 self-start sm:self-center"
-          >
-            <Edit className="h-3.5 w-3.5" /> Edit Identity
-          </Button>
-        </div>
-
-        {/* Editing Modal/Form */}
-        {isEditing && (
-          <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-primary">
-              Update Research Identity
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="scholarUrl" className="text-xs">Google Scholar Profile URL or Author ID</Label>
-                <Input
-                  id="scholarUrl"
-                  placeholder="https://scholar.google.com/citations?user=..."
-                  value={scholarUrl}
-                  onChange={(e) => setScholarUrl(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="orcid" className="text-xs">ORCID ID</Label>
-                <Input
-                  id="orcid"
-                  placeholder="0000-0002-1825-0097"
-                  value={orcid}
-                  onChange={(e) => setOrcid(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="interests" className="text-xs">Research Interests (comma separated)</Label>
-              <Input
-                id="interests"
-                placeholder="Machine Learning, Deep Learning, Computer Vision"
-                value={interestsText}
-                onChange={(e) => setInterestsText(e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleSaveProfile} disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? "Saving..." : "Save Identity"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 2. SCHOLAR METRICS CARD */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-soft space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              Google Scholar & Citation Metrics
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Verified publication impact and index scores belonging strictly to your faculty identity.
-            </p>
-          </div>
-
-          <Button
-            onClick={handleSyncScholar}
-            disabled={syncScholarMutation.isPending || isCooldownActive}
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-            title={isCooldownActive ? `Sync in cooldown. Retry in ${remainingMinutes} min.` : "Sync Google Scholar"}
-          >
-            <RefreshCw className={`h-4 w-4 ${syncScholarMutation.isPending ? "animate-spin" : ""}`} />
-            {syncScholarMutation.isPending
-              ? "Syncing..."
-              : isCooldownActive
-              ? `Cooldown (${remainingMinutes}m)`
-              : "Sync Google Scholar"}
-          </Button>
-        </div>
-
-        {/* Metrics Grid */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
-              <BookOpen className="h-4 w-4" />
-            </span>
-            <p className="mt-2 text-xs text-muted-foreground">Total Publications</p>
-            <p className="text-xl font-bold text-foreground">{faculty.publicationCount || 0}</p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
-              <Quote className="h-4 w-4" />
-            </span>
-            <p className="mt-2 text-xs text-muted-foreground">Citations</p>
-            <p className="text-xl font-bold text-primary">{faculty.totalCitations || 0}</p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600">
-              <Award className="h-4 w-4" />
-            </span>
-            <p className="mt-2 text-xs text-muted-foreground">h-index</p>
-            <p className="text-xl font-bold text-foreground">{faculty.hIndex || 0}</p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-background p-4 shadow-soft">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-foreground">
-              <CheckCircle2 className="h-4 w-4" />
-            </span>
-            <p className="mt-2 text-xs text-muted-foreground">i10-index</p>
-            <p className="text-xl font-bold text-foreground">{faculty.i10Index || 0}</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleStartEdit} className="gap-1.5">
+              <Edit className="h-3.5 w-3.5" /> Edit Research Identity
+            </Button>
+            <Button onClick={handleSyncScholar} disabled={isSyncing} className="gap-2 bg-primary text-primary-foreground">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "Syncing..." : "Sync Scholar"}
+            </Button>
           </div>
         </div>
 
-        {/* Academic Identifiers Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {faculty.scholarUrl ? (
-              <a
-                href={faculty.scholarUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-              >
-                <Globe className="h-3.5 w-3.5" />
-                Google Scholar Linked
-              </a>
-            ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                Scholar Not Linked
-              </Badge>
-            )}
+        {/* Institutional Affiliation Bar */}
+        <div className="p-3 rounded-xl bg-muted/40 border border-border/60 flex items-center justify-between text-xs">
+          <span className="text-muted-foreground font-medium">Institutional Affiliation:</span>
+          <span className="font-semibold text-foreground">{identity.institutionalAffiliation}</span>
+        </div>
 
-            <Badge variant="outline" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20 text-xs gap-1">
-              <CheckCircle2 className="h-3 w-3" /> Live Google Scholar Data
-            </Badge>
-
-            {faculty.orcid ? (
-              <a
-                href={faculty.orcid.startsWith("http") ? faculty.orcid : `https://orcid.org/${faculty.orcid}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-500/20 transition-colors"
-              >
-                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-extrabold text-white">iD</span>
-                ORCID: {faculty.orcid.replace(/^https?:\/\/orcid\.org\//i, "")}
-              </a>
-            ) : (
-              <Badge variant="outline" className="text-amber-600 bg-amber-500/10 border-amber-500/30 text-xs gap-1">
-                <span className="flex h-3 w-3 items-center justify-center rounded-full bg-amber-600 text-[8px] font-bold text-white">iD</span>
-                ORCID iD Not Linked
-              </Badge>
-            )}
+        {/* Deterministic Profile Completeness Gauge */}
+        <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-foreground flex items-center gap-1.5">
+              <Award className="h-4 w-4 text-primary" /> Research Profile Completeness
+            </span>
+            <span className="font-extrabold text-primary text-sm">{identity.profileCompleteness}%</span>
           </div>
-
-          {faculty.lastSyncTime && (
-            <p className="text-xs text-muted-foreground">
-              Last synced: {new Date(faculty.lastSyncTime).toLocaleDateString()} {new Date(faculty.lastSyncTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden border border-border/60">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
+              style={{ width: `${identity.profileCompleteness}%` }}
+            ></div>
+          </div>
+          {identity.missingProfileFields.length > 0 && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1 pt-1">
+              <Info className="h-3 w-3 text-amber-500 shrink-0" /> Add {identity.missingProfileFields.join(", ")} to reach 100% profile completeness.
             </p>
           )}
         </div>
 
-        {/* Research Interests Tags */}
-        {faculty.researchInterests && faculty.researchInterests.length > 0 && (
-          <div className="border-t border-border pt-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Research Expertise & Interests
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {faculty.researchInterests.map((tag, idx) => (
-                <Badge key={idx} variant="outline" className="text-xs font-normal">
-                  {tag}
-                </Badge>
-              ))}
+        {/* Edit Modal Form */}
+        {isEditing && (
+          <div className="mt-4 p-4 rounded-xl bg-card border border-primary/30 space-y-3 shadow-md">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Update Faculty Research Identifiers</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Google Scholar Profile URL or Author ID</Label>
+                <Input value={scholarInput} onChange={(e) => setScholarInput(e.target.value)} placeholder="https://scholar.google.com/citations?user=Y8O6WQcAAAAJ" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">ORCID iD</Label>
+                <Input value={orcidInput} onChange={(e) => setOrcidInput(e.target.value)} placeholder="0000-0002-1825-0097" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">ResearcherID / Clarivate ID</Label>
+                <Input value={researcherId} onChange={(e) => setResearcherId(e.target.value)} placeholder="A-1234-2025" className="mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Institutional Affiliation</Label>
+                <Input value={affiliationInput} onChange={(e) => setAffiliationInput(e.target.value)} placeholder="K. K. Wagh Institute of Engineering Education and Research" className="mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Research Interests (comma separated)</Label>
+              <Input value={interestsText} onChange={(e) => setInterestsText(e.target.value)} placeholder="Machine Learning, Data Mining, Computer Vision" className="mt-1" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveProfile}>Save Research Identity</Button>
             </div>
           </div>
         )}
       </div>
+
+      {/* 2. IDENTITY SOURCE STATUS & CITATION BREAKDOWN */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Source Connection Matrix */}
+        <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-soft space-y-3">
+          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Globe className="h-4 w-4 text-blue-500" /> Research Identity Sources
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border/50">
+              <span className="font-medium text-foreground">Google Scholar:</span>
+              {identity.scholarAuthorId ? (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Connected ({identity.scholarAuthorId})
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold">Not Provided</span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border/50">
+              <span className="font-medium text-foreground">ORCID iD:</span>
+              {identity.orcid ? (
+                <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Provided (Unverified)
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold">Not Provided</span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border/50">
+              <span className="font-medium text-foreground">ResearcherID / Clarivate:</span>
+              {identity.researcherId ? (
+                <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Provided ({identity.researcherId})
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold">Not Provided</span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border border-border/50">
+              <span className="font-medium text-foreground">Web of Science (SCI):</span>
+              {identity.status.wos === "CONNECTED_FREE" ? (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Connected (Free Open Science Sync)
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground font-semibold">Not Connected</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Source-Specific Citation Breakdown */}
+        <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-soft space-y-3">
+          <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Quote className="h-4 w-4 text-primary" /> Source-Specific Citation Breakdown
+          </h3>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+              <span className="text-[11px] text-blue-600 font-semibold block">Google Scholar</span>
+              <span className="text-xl font-bold text-blue-600">{identity.metrics.citationSources.googleScholar}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <span className="text-[11px] text-purple-600 font-semibold block">OpenAlex Index</span>
+              <span className="text-xl font-bold text-purple-600">{identity.metrics.citationSources.openAlex}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <span className="text-[11px] text-amber-600 font-semibold block">Crossref Metadata</span>
+              <span className="text-xl font-bold text-amber-600">{identity.metrics.citationSources.crossref}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-[11px] text-emerald-600 font-semibold block">Web of Science / SCI</span>
+              <span className="text-xl font-bold text-emerald-600">{identity.metrics.citationSources.webOfScience}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. PUBLICATIONS CLASSIFICATION (JOURNAL VS CONFERENCE) */}
+      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-soft space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+          <div>
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" /> Classified Publications Portfolio
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Unified list of verified research publications with author-level affiliations and provenance tracking.
+            </p>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs font-semibold">
+            <button
+              onClick={() => setActiveTab("ALL")}
+              className={`px-3 py-1 rounded-md transition ${activeTab === "ALL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
+            >
+              All ({pubsList.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("JOURNAL")}
+              className={`px-3 py-1 rounded-md transition ${activeTab === "JOURNAL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
+            >
+              Journals ({journalPubs.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("CONFERENCE")}
+              className={`px-3 py-1 rounded-md transition ${activeTab === "CONFERENCE" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
+            >
+              Conferences ({conferencePubs.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Publication Cards */}
+        {filteredPubs.length > 0 ? (
+          <div className="space-y-3">
+            {filteredPubs.map((p) => (
+              <div key={p.id} className="p-4 rounded-xl bg-muted/20 border border-border/70 hover:border-primary/40 transition space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-primary/10 text-primary mb-1 inline-block">
+                      {p.journal ? "JOURNAL" : p.conference ? "CONFERENCE" : "PUBLICATION"}
+                    </span>
+                    <h4 className="text-sm font-bold text-foreground leading-snug">{p.title}</h4>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 shrink-0">
+                    {p.citationCount} Citations
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{p.journal || p.conference || "Institutional Publication"} ({p.publicationYear})</span>
+                  {p.doi && (
+                    <a href={`https://doi.org/${p.doi}`} target="_blank" rel="noreferrer" className="text-primary hover:underline font-mono text-[11px] flex items-center gap-1">
+                      doi:{p.doi} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+
+                {/* Author-Level Affiliations with Provenance */}
+                <div className="pt-2 border-t border-border/50 space-y-1">
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Author Affiliations:</p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {p.authors && p.authors.length > 0 ? (
+                      p.authors.map((a: any) => (
+                        <div key={a.id} className="p-2 rounded bg-card border border-border/60 flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-semibold text-foreground">{a.authorName}</span>
+                            <p className="text-[10px] text-muted-foreground">{a.affiliation || "Affiliation unverified"}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
+                              a.affiliationStatus === "MANUALLY_ENTERED"
+                                ? "bg-amber-500/10 text-amber-600"
+                                : "bg-emerald-500/10 text-emerald-600"
+                            }`}>
+                              {a.affiliationStatus === "MANUALLY_ENTERED" ? "✎ Manual" : "✓ Verified"}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingAuthor({ researchId: p.id, authorId: a.id, authorName: a.authorName, currentAffiliation: a.affiliation || "" });
+                                setManualAffiliationText(a.affiliation || "");
+                              }}
+                              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                              title="Edit Affiliation"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No author metadata attached</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+            No publications found under current filter.
+          </div>
+        )}
+      </div>
+
+      {/* Manual Affiliation Modal */}
+      {editingAuthor && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-card border border-border p-6 rounded-2xl shadow-2xl space-y-4">
+            <h3 className="text-sm font-bold text-foreground">Edit Author Affiliation</h3>
+            <p className="text-xs text-muted-foreground">Author: <strong className="text-foreground">{editingAuthor.authorName}</strong></p>
+            <div>
+              <Label className="text-xs">Affiliation Institution Name</Label>
+              <Input
+                value={manualAffiliationText}
+                onChange={(e) => setManualAffiliationText(e.target.value)}
+                placeholder="K. K. Wagh Institute of Engineering Education and Research"
+                className="mt-1 text-xs"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setEditingAuthor(null)}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveAuthorAffiliation}>Save Affiliation Provenance</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

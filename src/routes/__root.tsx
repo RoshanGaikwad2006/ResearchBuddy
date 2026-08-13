@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 
 function NotFoundComponent() {
   return (
@@ -35,21 +35,30 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("Root Route Error caught:", error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    // Log error boundary event
   }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+      <div className="max-w-xl text-center p-6 bg-card border border-border rounded-2xl shadow-xl">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+
+        {/* Display exact error message for quick diagnostic */}
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-left text-xs font-mono text-red-500 overflow-x-auto max-h-48">
+            <p className="font-bold">{error.message || String(error)}</p>
+            {error.stack && <pre className="mt-1 text-[10px] text-red-400 whitespace-pre-wrap">{error.stack}</pre>}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -77,14 +86,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { title: "AI-Powered Institutional Research Platform | KRIYA" },
+      { name: "description", content: "AI-Powered Institutional Research Platform for Colleges & Universities" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -99,7 +102,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
-
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -121,13 +123,20 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { Toaster } from "sonner";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { initializeAuth } = useAuth();
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster position="top-right" richColors />
     </QueryClientProvider>
   );
 }

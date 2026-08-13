@@ -15,12 +15,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isInitialized && !isAuthenticated) {
-      navigate({ to: "/" });
+    if (typeof window !== "undefined" && isInitialized && !isAuthenticated) {
+      window.location.href = "/";
     }
-  }, [isInitialized, isAuthenticated, navigate]);
+  }, [isInitialized, isAuthenticated]);
 
-  if (!isInitialized || (isLoading && !isAuthenticated)) {
+  if (typeof window === "undefined" || !isInitialized || (isLoading && !isAuthenticated)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 text-center">
