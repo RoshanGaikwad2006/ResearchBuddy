@@ -66,6 +66,9 @@ export interface CreateResearchPayload {
   doi?: string | null;
   journal?: string | null;
   conference?: string | null;
+  venueType?: string | null;
+  patentNumber?: string | null;
+  isbn?: string | null;
   publicationYear: number;
   pdfUrl?: string | null;
   departmentId?: string | null;
