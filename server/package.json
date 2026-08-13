@@ -12,12 +12,16 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.2.5",
+    "@langchain/openai": "^1.5.6",
     "@prisma/client": "^6.3.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.6.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -26,6 +30,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.13.4",
+    "@types/node-cron": "^3.0.11",
     "prisma": "^6.3.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

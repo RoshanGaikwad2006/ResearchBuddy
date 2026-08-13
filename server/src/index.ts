@@ -13,6 +13,8 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
+import intelligenceRoutes from "./routes/intelligence.routes.js";
+import knowledgeGraphRoutes from "./routes/knowledgeGraph.routes.js";
 import { prisma } from "./config/db.js";
 
 dotenv.config();
@@ -58,11 +60,15 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/audits", auditRoutes);
+app.use("/api/intelligence", intelligenceRoutes);
+app.use("/api/knowledge-graph", knowledgeGraphRoutes);
 
 // 404 Handler
 app.use((_req, res) => {
   res.status(404).json({ message: "API endpoint not found" });
 });
+
+import { SchedulerService } from "./services/scheduler.service.js";
 
 // Start Server
 app.listen(PORT, async () => {
@@ -70,6 +76,7 @@ app.listen(PORT, async () => {
   try {
     await prisma.$connect();
     console.log("✅ Successfully connected to Supabase PostgreSQL database via Prisma");
+    SchedulerService.initializeScheduler();
   } catch (error) {
     console.error("❌ Failed to connect to Supabase database:", error);
   }
