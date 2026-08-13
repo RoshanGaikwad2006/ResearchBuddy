@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Loader2, Search, Sparkles, Plus, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Plus, Trash2, Award, Book, BookOpen, Layers, FileText } from "lucide-react";
 
 import {
   Dialog,
@@ -40,6 +40,7 @@ interface AuthorRow {
 }
 
 export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissionModalProps) {
+  const [venueCategory, setVenueCategory] = useState<"JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("JOURNAL");
   const [doiInput, setDoiInput] = useState("");
   const [keywordsText, setKeywordsText] = useState("");
   const [authorsList, setAuthorsList] = useState<AuthorRow[]>([
@@ -68,6 +69,8 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
       doi: "",
       journal: "",
       conference: "",
+      patentNumber: "",
+      isbn: "",
       publicationYear: new Date().getFullYear(),
       pdfUrl: "",
       departmentId: "",
@@ -84,8 +87,14 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
       setValue("title", meta.title);
       setValue("abstract", meta.abstract);
       setValue("doi", meta.doi);
-      if (meta.journal) setValue("journal", meta.journal);
-      if (meta.conference) setValue("conference", meta.conference);
+      if (meta.journal) {
+        setValue("journal", meta.journal);
+        setVenueCategory("JOURNAL");
+      }
+      if (meta.conference) {
+        setValue("conference", meta.conference);
+        setVenueCategory("CONFERENCE");
+      }
       if (meta.publicationYear) setValue("publicationYear", meta.publicationYear);
       if (meta.keywords) setKeywordsText(meta.keywords.join(", "));
       if (meta.authors && meta.authors.length > 0) {
@@ -131,8 +140,11 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
       keywords: keywords.length > 0 ? keywords : ["Research"],
       researchArea: values.researchArea,
       doi: values.doi || null,
-      journal: values.journal || null,
-      conference: values.conference || null,
+      journal: venueCategory === "JOURNAL" ? (values.journal || null) : null,
+      conference: venueCategory === "CONFERENCE" ? (values.conference || null) : null,
+      venueType: venueCategory,
+      patentNumber: venueCategory === "PATENT" ? (values.patentNumber || null) : null,
+      isbn: venueCategory === "BOOK" ? (values.isbn || null) : null,
       publicationYear: Number(values.publicationYear),
       pdfUrl: values.pdfUrl || null,
       departmentId: values.departmentId || null,
@@ -158,9 +170,9 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span>Submit Publication for Review</span>
+            <span>Submit Publication for Admin Review</span>
             <Badge variant="outline" className="text-xs font-normal">
-              DOI Auto-Fetch Ready
+              Structured Multi-Category Submission
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -194,12 +206,68 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
+        {/* Category Type Selector Buttons */}
+        <div className="space-y-1.5 pt-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Select Publication / IP Category
+          </Label>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 bg-muted p-1.5 rounded-xl text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setVenueCategory("JOURNAL")}
+              className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                venueCategory === "JOURNAL" ? "bg-card text-emerald-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5" /> Journal
+            </button>
+            <button
+              type="button"
+              onClick={() => setVenueCategory("CONFERENCE")}
+              className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                venueCategory === "CONFERENCE" ? "bg-card text-indigo-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" /> Conference
+            </button>
+            <button
+              type="button"
+              onClick={() => setVenueCategory("PATENT")}
+              className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                venueCategory === "PATENT" ? "bg-card text-amber-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Award className="h-3.5 w-3.5" /> Patent
+            </button>
+            <button
+              type="button"
+              onClick={() => setVenueCategory("BOOK")}
+              className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                venueCategory === "BOOK" ? "bg-card text-purple-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Book className="h-3.5 w-3.5" /> Book/ISBN
+            </button>
+            <button
+              type="button"
+              onClick={() => setVenueCategory("OTHER")}
+              className={`py-2 px-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+                venueCategory === "OTHER" ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" /> Other
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-1">
           <div className="space-y-1.5">
-            <Label htmlFor="res-title">Publication Title</Label>
+            <Label htmlFor="res-title">
+              {venueCategory === "PATENT" ? "Patent Title / Invention Name" : venueCategory === "BOOK" ? "Book / Chapter Title" : "Publication Title"}
+            </Label>
             <Input
               id="res-title"
-              placeholder="Enter full research publication title"
+              placeholder={venueCategory === "PATENT" ? "e.g. IOT Based Barrier for Crowd Management" : "Enter full title..."}
               disabled={isLoading}
               {...register("title", { required: "Title is required" })}
             />
@@ -207,11 +275,11 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="res-abstract">Abstract</Label>
+            <Label htmlFor="res-abstract">Abstract / Invention Summary</Label>
             <Textarea
               id="res-abstract"
               rows={4}
-              placeholder="Summary of research methodology and findings..."
+              placeholder="Detailed description of research methodology, invention scope, or findings..."
               disabled={isLoading}
               {...register("abstract", { required: "Abstract is required" })}
             />
@@ -220,17 +288,19 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="researchArea">Research Area</Label>
+              <Label htmlFor="researchArea">Research Area / Discipline</Label>
               <Input
                 id="researchArea"
-                placeholder="Artificial Intelligence, Materials Science..."
+                placeholder="Computer Engineering, AI, Electrical..."
                 disabled={isLoading}
                 {...register("researchArea", { required: "Research Area is required" })}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="publicationYear">Publication Year</Label>
+              <Label htmlFor="publicationYear">
+                {venueCategory === "PATENT" ? "Patent Filing / Grant Year" : "Publication Year"}
+              </Label>
               <Input
                 id="publicationYear"
                 type="number"
@@ -240,24 +310,67 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
             </div>
           </div>
 
+          {/* Dynamic Structured Fields based on Selected Category */}
+          {venueCategory === "JOURNAL" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="journal">Journal Name</Label>
+                <Input id="journal" placeholder="e.g. IEEE Transactions on Software Engineering" disabled={isLoading} {...register("journal")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="doi">DOI (Optional)</Label>
+                <Input id="doi" placeholder="e.g. 10.1109/..." disabled={isLoading} {...register("doi")} />
+              </div>
+            </div>
+          )}
+
+          {venueCategory === "CONFERENCE" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="conference">Conference Name / Proceedings</Label>
+                <Input id="conference" placeholder="e.g. IEEE International Conference on AI" disabled={isLoading} {...register("conference")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="doi">DOI (Optional)</Label>
+                <Input id="doi" placeholder="e.g. 10.1109/..." disabled={isLoading} {...register("doi")} />
+              </div>
+            </div>
+          )}
+
+          {venueCategory === "PATENT" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="patentNumber">Patent Number / Application No.</Label>
+                <Input id="patentNumber" placeholder="e.g. IN Patent 508,395 or IN Patent cbr 213,807" disabled={isLoading} {...register("patentNumber")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="journal">Patent Office / Issuing Authority</Label>
+                <Input id="journal" placeholder="e.g. Indian Patent Office (IPO)" disabled={isLoading} {...register("journal")} />
+              </div>
+            </div>
+          )}
+
+          {venueCategory === "BOOK" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="isbn">ISBN Number</Label>
+                <Input id="isbn" placeholder="e.g. ISBN 978-93-5563-382-8" disabled={isLoading} {...register("isbn")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="journal">Publisher / Book Name</Label>
+                <Input id="journal" placeholder="e.g. Springer, CRC Press, Technical Publications" disabled={isLoading} {...register("journal")} />
+              </div>
+            </div>
+          )}
+
+          {venueCategory === "OTHER" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="journal">Repository / Publisher / Magazine</Label>
+              <Input id="journal" placeholder="e.g. CSI Communications, Technical Report" disabled={isLoading} {...register("journal")} />
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="journal">Journal Name (Optional)</Label>
-              <Input id="journal" placeholder="IEEE Transactions, Nature..." disabled={isLoading} {...register("journal")} />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="conference">Conference Name (Optional)</Label>
-              <Input id="conference" placeholder="NeurIPS, CVPR..." disabled={isLoading} {...register("conference")} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="doi">DOI (Optional)</Label>
-              <Input id="doi" placeholder="10.1038/..." disabled={isLoading} {...register("doi")} />
-            </div>
-
             <div className="space-y-1.5">
               <Label htmlFor="departmentId">Department</Label>
               <Select
@@ -277,73 +390,68 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pdfUrl">PDF Manuscript / Patent Document Link</Label>
+              <Input id="pdfUrl" placeholder="https://..." disabled={isLoading} {...register("pdfUrl")} />
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="pdfUrl">PDF Manuscript URL (Optional)</Label>
-            <Input id="pdfUrl" placeholder="https://arxiv.org/pdf/..." disabled={isLoading} {...register("pdfUrl")} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="keywords">Keywords (Comma separated)</Label>
+            <Label htmlFor="keywords">Keywords / Indexing Tags (Comma separated)</Label>
             <Input
               id="keywords"
-              placeholder="Deep Learning, Neural Networks, Computer Vision"
+              placeholder="Deep Learning, Machine Learning, Patent, Crowd Management"
               value={keywordsText}
               onChange={(e) => setKeywordsText(e.target.value)}
               disabled={isLoading}
             />
           </div>
 
-          {/* Authors List */}
+          {/* Authors / Inventors List */}
           <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
             <div className="flex items-center justify-between">
-              <Label className="font-semibold text-foreground">Authors List</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addAuthorRow} className="h-8 gap-1">
-                <Plus className="h-3.5 w-3.5" /> Add Author
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {venueCategory === "PATENT" ? "Inventors & Co-Inventors" : "Authors & Co-Authors"}
+              </Label>
+              <Button type="button" variant="outline" size="sm" onClick={addAuthorRow} className="h-7 text-xs gap-1">
+                <Plus className="h-3 w-3" /> Add {venueCategory === "PATENT" ? "Inventor" : "Author"}
               </Button>
             </div>
 
-            {authorsList.map((author, index) => (
-              <div key={index} className="grid items-center gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            {authorsList.map((row, idx) => (
+              <div key={idx} className="flex items-center gap-2">
                 <Input
-                  placeholder={`Author #${index + 1} Name`}
-                  value={author.authorName}
-                  onChange={(e) => updateAuthorRow(index, "authorName", e.target.value)}
-                  className="h-9"
+                  placeholder={venueCategory === "PATENT" ? `Inventor ${idx + 1} Name` : `Author ${idx + 1} Name`}
+                  value={row.authorName}
+                  onChange={(e) => updateAuthorRow(idx, "authorName", e.target.value)}
+                  className="h-8 text-xs flex-1"
                 />
+
                 <Select
-                  value={author.facultyId || author.studentId || "external"}
-                  onValueChange={(val) => {
-                    if (val.startsWith("fac_")) {
-                      updateAuthorRow(index, "facultyId", val.replace("fac_", ""));
-                      updateAuthorRow(index, "studentId", undefined);
-                    } else if (val.startsWith("std_")) {
-                      updateAuthorRow(index, "studentId", val.replace("std_", ""));
-                      updateAuthorRow(index, "facultyId", undefined);
-                    }
-                  }}
+                  value={row.facultyId || ""}
+                  onValueChange={(val) => updateAuthorRow(idx, "facultyId", val || undefined)}
                 >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Map to Institutional User" />
+                  <SelectTrigger className="h-8 text-xs w-36">
+                    <SelectValue placeholder="Link Faculty" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="external">External / Unlinked</SelectItem>
                     {(facultyData?.items || []).map((f) => (
-                      <SelectItem key={f.id} value={`fac_${f.id}`}>
-                        Faculty: {f.user.name} ({f.department.code})
-                      </SelectItem>
-                    ))}
-                    {(studentData?.items || []).map((s) => (
-                      <SelectItem key={s.id} value={`std_${s.id}`}>
-                        Student: {s.user.name} ({s.rollNumber})
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.user.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
                 {authorsList.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeAuthorRow(index)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeAuthorRow(idx)}
+                    className="h-8 w-8 p-0 text-destructive"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
@@ -351,13 +459,13 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
             ))}
           </div>
 
-          <div className="flex justify-end gap-2 pt-3">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Publication
+            <Button type="submit" disabled={isLoading} className="gap-2">
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Submit for Admin Review
             </Button>
           </div>
         </form>

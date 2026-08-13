@@ -82,7 +82,26 @@ export function ApprovalQueueView() {
                 <tr key={item.id} className="transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3.5">
                     <div className="font-semibold text-foreground line-clamp-1">{item.title}</div>
-                    <div className="text-xs text-muted-foreground">{item.journal || item.conference || "Institutional Submission"}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                      {item.venueType === "PATENT" || /patent/i.test(item.title) ? (
+                        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 font-semibold">
+                          📜 Patent {item.patentNumber ? `(${item.patentNumber})` : ""}
+                        </Badge>
+                      ) : item.venueType === "BOOK" || /isbn/i.test(item.title) ? (
+                        <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 font-semibold">
+                          📚 Book {item.isbn ? `(${item.isbn})` : ""}
+                        </Badge>
+                      ) : item.venueType === "CONFERENCE" || item.conference ? (
+                        <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 font-semibold">
+                          🎤 Conference
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold">
+                          📖 Journal
+                        </Badge>
+                      )}
+                      <span>{item.journal || item.conference || "Institutional Submission"}</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3.5 text-xs text-foreground/90">
                     <div>{item.createdBy?.name || "Faculty Author"}</div>

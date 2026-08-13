@@ -173,6 +173,9 @@ model Research {
   doiSource       String?        @default("OPENALEX")
   citationSource  String?        @default("GOOGLE_SCHOLAR")
   venueSource     String?        @default("OPENALEX")
+  venueType       String?        @default("JOURNAL") // "JOURNAL", "CONFERENCE", "PATENT", "BOOK", "OTHER"
+  patentNumber    String?
+  isbn            String?
   provenance      Json?          // Field-level provenance metadata dictionary
   departmentId    String?        // Foreign Key to Department
   createdById     String         // Foreign Key to User

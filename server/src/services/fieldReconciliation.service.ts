@@ -46,6 +46,8 @@ export interface PublicationCandidates {
   };
 }
 
+export type VenueType = "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER";
+
 export interface ReconciledMasterRecord {
   title: FieldProvenance<string>;
   abstract: FieldProvenance<string>;
@@ -53,10 +55,65 @@ export interface ReconciledMasterRecord {
   doi: FieldProvenance<string | null>;
   citationCount: FieldProvenance<number>;
   venue: FieldProvenance<string | null>;
+  venueType: VenueType;
+  patentNumber?: string;
+  isbn?: string;
   publicationYear: FieldProvenance<number>;
   authors: FieldProvenance<string[]>;
   isJournal: boolean;
   provenanceSummary: string;
+}
+
+export class PublicationClassifierService {
+  static classifyPublication(data: {
+    title?: string;
+    venue?: string | null;
+    snippet?: string | null;
+    openAlexType?: string | null;
+  }): { venueType: VenueType; patentNumber?: string; isbn?: string } {
+    const text = `${data.title || ""} ${data.venue || ""} ${data.snippet || ""}`.toLowerCase();
+
+    // 1. Patent Check
+    const patentMatch = text.match(/(in patent|patent app|patent no\.?|us patent|patent)\s*([cbr0-9,\s\/]+)?/i);
+    if (patentMatch || data.openAlexType === "patent" || /\bpatent\b/i.test(text)) {
+      return {
+        venueType: "PATENT",
+        patentNumber: patentMatch ? patentMatch[0].trim() : undefined,
+      };
+    }
+
+    // 2. Book / Textbook / Chapter Check
+    const isbnMatch = text.match(/(isbn\s*:?\s*978-?[0-9-]{10,17})/i);
+    if (
+      isbnMatch ||
+      /\bisbn\b|book chapter|springer book|textbook|monograph/i.test(text) ||
+      data.openAlexType === "book" ||
+      data.openAlexType === "book-chapter"
+    ) {
+      return {
+        venueType: "BOOK",
+        isbn: isbnMatch ? isbnMatch[1].trim() : undefined,
+      };
+    }
+
+    // 3. Conference Check
+    if (
+      /\b(conference|proceedings|symposium|cpgcon|icbds|ieee int|workshop|proc\.)\b/i.test(text) ||
+      data.openAlexType === "proceedings-article"
+    ) {
+      return { venueType: "CONFERENCE" };
+    }
+
+    // 4. Journal Check
+    if (
+      /\b(journal|transactions|ijca|ijettecs|ijrar|ijrem|letters|periodical)\b/i.test(text) ||
+      data.openAlexType === "journal-article"
+    ) {
+      return { venueType: "JOURNAL" };
+    }
+
+    return { venueType: "OTHER" };
+  }
 }
 
 export class FieldReconciliationService {
@@ -176,7 +233,13 @@ export class FieldReconciliationService {
       source: candidates.openAlex?.authors ? "OPENALEX" : "RECONCILED",
     };
 
-    const isJournal = selectedVenue.value ? !/conference|proceedings|symposium|workshop/i.test(selectedVenue.value) : true;
+    const classification = PublicationClassifierService.classifyPublication({
+      title: selectedTitle.value,
+      venue: selectedVenue.value,
+      snippet: candidates.scholar?.snippet,
+    });
+
+    const isJournal = classification.venueType === "JOURNAL";
 
     return {
       title: selectedTitle,
@@ -185,10 +248,13 @@ export class FieldReconciliationService {
       doi: selectedDoi,
       citationCount: selectedCitations,
       venue: selectedVenue,
+      venueType: classification.venueType,
+      patentNumber: classification.patentNumber,
+      isbn: classification.isbn,
       publicationYear: selectedYear,
       authors: selectedAuthors,
       isJournal,
-      provenanceSummary: `Reconciled Master Record (Abstract: ${selectedAbstract.source}, Citations: ${selectedCitations.source}, DOI: ${selectedDoi.source})`,
+      provenanceSummary: `Reconciled Master Record (Abstract: ${selectedAbstract.source}, Citations: ${selectedCitations.source}, DOI: ${selectedDoi.source}, Type: ${classification.venueType})`,
     };
   }
 }
