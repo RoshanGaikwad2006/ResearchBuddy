@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileStack, Plus, Search, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Eye, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Users, Filter, BookOpen, Layers } from "lucide-react";
+import { FileStack, Plus, Search, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Eye, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Users, Filter, BookOpen, Layers, Award, Book, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ export function MyPublicationsView() {
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
 
   // Filters
-  const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE">("ALL");
+  const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
   const [statusFilter, setStatusFilter] = useState<ResearchStatusType | "ALL">("ALL");
 
   const { data, isLoading } = useMyResearchList({
@@ -28,10 +28,20 @@ export function MyPublicationsView() {
   const rawPublications = data?.items || [];
   const pagination = data?.pagination || { total: 0, page: 1, totalPages: 1 };
 
-  // Apply Venue Type Filtering (Journals vs Conferences)
+  // Apply Venue Type Filtering (Journals vs Conferences vs Patents vs Books)
   const publications = rawPublications.filter((p) => {
-    if (venueFilter === "JOURNAL") return !!p.journal || !p.conference;
-    if (venueFilter === "CONFERENCE") return !!p.conference && !p.journal;
+    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+    const type = p.venueType || (
+      /patent/i.test(text) ? "PATENT" :
+      /isbn/i.test(text) ? "BOOK" :
+      p.conference ? "CONFERENCE" : "JOURNAL"
+    );
+
+    if (venueFilter === "JOURNAL") return type === "JOURNAL" || (!!p.journal && !p.conference && type !== "PATENT" && type !== "BOOK");
+    if (venueFilter === "CONFERENCE") return type === "CONFERENCE" || (!!p.conference && !p.journal && type !== "PATENT" && type !== "BOOK");
+    if (venueFilter === "PATENT") return type === "PATENT" || /patent/i.test(text);
+    if (venueFilter === "BOOK") return type === "BOOK" || /isbn/i.test(text);
+    if (venueFilter === "OTHER") return type === "OTHER";
     return true;
   });
 
@@ -68,6 +78,42 @@ export function MyPublicationsView() {
     }
   };
 
+  const getVenueBadge = (p: ResearchItem) => {
+    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+    const type = p.venueType || (
+      /patent/i.test(text) ? "PATENT" :
+      /isbn/i.test(text) ? "BOOK" :
+      p.conference ? "CONFERENCE" : "JOURNAL"
+    );
+
+    if (type === "PATENT" || /patent/i.test(text)) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1 font-semibold">
+          <Award className="h-3 w-3" /> Patent {p.patentNumber ? `— ${p.patentNumber}` : ""}
+        </Badge>
+      );
+    }
+    if (type === "BOOK" || /isbn/i.test(text)) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 font-semibold">
+          <Book className="h-3 w-3" /> Book / ISBN {p.isbn ? `— ${p.isbn}` : ""}
+        </Badge>
+      );
+    }
+    if (type === "CONFERENCE" || p.conference) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 gap-1 font-semibold">
+          <Layers className="h-3 w-3" /> Conference
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1 font-semibold">
+        <BookOpen className="h-3 w-3" /> Journal
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -82,7 +128,7 @@ export function MyPublicationsView() {
             )}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Personal research publication portfolio with venue classification & citation tracking.
+            Personal research portfolio with automatic Patents, Books, Journals & Conferences classification.
           </p>
         </div>
 
@@ -97,7 +143,7 @@ export function MyPublicationsView() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search my titles, keywords, or DOI..."
+            placeholder="Search my titles, patents, ISBN, or keywords..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -107,34 +153,61 @@ export function MyPublicationsView() {
           />
         </div>
 
-        {/* Venue Type Filter Tabs (Journals vs Conferences) */}
-        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-semibold">
+        {/* 6 Category Filter Tabs */}
+        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-semibold overflow-x-auto">
           <button
             type="button"
             onClick={() => setVenueFilter("ALL")}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               venueFilter === "ALL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            All Venues
+            All ({rawPublications.length})
           </button>
           <button
             type="button"
             onClick={() => setVenueFilter("JOURNAL")}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
               venueFilter === "JOURNAL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <BookOpen className="h-3.5 w-3.5 text-primary" /> Journals
+            <BookOpen className="h-3.5 w-3.5 text-emerald-600" /> Journals
           </button>
           <button
             type="button"
             onClick={() => setVenueFilter("CONFERENCE")}
-            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
               venueFilter === "CONFERENCE" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Layers className="h-3.5 w-3.5 text-amber-500" /> Conferences
+            <Layers className="h-3.5 w-3.5 text-indigo-500" /> Conferences
+          </button>
+          <button
+            type="button"
+            onClick={() => setVenueFilter("PATENT")}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+              venueFilter === "PATENT" ? "bg-card text-amber-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Award className="h-3.5 w-3.5 text-amber-500" /> Patents
+          </button>
+          <button
+            type="button"
+            onClick={() => setVenueFilter("BOOK")}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+              venueFilter === "BOOK" ? "bg-card text-purple-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Book className="h-3.5 w-3.5 text-purple-500" /> Books & ISBN
+          </button>
+          <button
+            type="button"
+            onClick={() => setVenueFilter("OTHER")}
+            className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
+              venueFilter === "OTHER" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5 text-slate-500" /> Others
           </button>
         </div>
       </div>
@@ -155,10 +228,10 @@ export function MyPublicationsView() {
               setStatusFilter(tab.value as any);
               setPage(1);
             }}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all border ${
+            className={`px-3 py-1 rounded-full border transition whitespace-nowrap ${
               statusFilter === tab.value
-                ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                : "border-border/60 bg-card text-muted-foreground hover:text-foreground"
+                ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                : "border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             {tab.label}
@@ -166,171 +239,140 @@ export function MyPublicationsView() {
         ))}
       </div>
 
-      {/* Publications Grid Layout */}
+      {/* Publications Grid */}
       {isLoading ? (
-        <div className="flex h-48 items-center justify-center rounded-xl border border-border bg-card">
-          <RefreshCw className="h-6 w-6 animate-spin text-primary mr-2" />
-          <span className="text-xs text-muted-foreground font-medium">Loading publications...</span>
+        <div className="py-16 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+          <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+          Loading your publication portfolio...
         </div>
-      ) : publications.length > 0 ? (
-        <div className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {publications.map((paper) => (
-              <div
-                key={paper.id}
-                className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-5 shadow-soft transition-all hover:border-primary/40 hover:shadow-card"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    {getStatusBadge(paper.status)}
-                    <span className="text-xs font-mono text-muted-foreground">{paper.publicationYear}</span>
-                  </div>
-
-                  <div className="mt-2.5">
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-primary/10 text-primary inline-block">
-                      {paper.journal ? "JOURNAL" : paper.conference ? "CONFERENCE" : "PUBLICATION"}
-                    </span>
-                  </div>
-
-                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-foreground group-hover:text-primary transition-colors">
-                    {paper.title}
-                  </h3>
-
-                  {/* Authors & Co-Authors */}
-                  {paper.authors && paper.authors.length > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1">
-                      <span className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase mr-0.5 flex items-center gap-1">
-                        <Users className="h-3 w-3 text-primary shrink-0" /> Authors:
-                      </span>
-                      {paper.authors.map((author, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-semibold text-foreground border border-border/50"
-                        >
-                          {author.authorName}
-                          {author.isCorresponding && (
-                            <span className="ml-0.5 text-primary font-bold text-[9px]">(Corresponding)</span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Multi-Source Citation Badges */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {paper.citationCount > 0 && (
-                      <Badge variant="outline" className="text-[10px] font-medium text-amber-700 bg-amber-500/10 border-amber-500/30 gap-1 py-0">
-                        <span className="font-bold">Scholar SERP API</span>: {paper.citationCount} Citations
-                      </Badge>
-                    )}
-                    {paper.doi ? (
-                      <Badge variant="outline" className="text-[10px] font-medium text-emerald-700 bg-emerald-500/10 border-emerald-500/30 gap-1 py-0">
-                        <span className="font-bold">OpenAlex / Crossref</span>: DOI Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] font-medium text-slate-600 bg-slate-500/10 border-slate-500/20 py-0">
-                        Institutional DB Entry
-                      </Badge>
-                    )}
-                  </div>
-
-                  <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                    {paper.abstract}
-                  </p>
-
-                  {paper.doi ? (
-                    <a
-                      href={`https://doi.org/${paper.doi}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 flex items-center gap-1 text-[11px] text-primary font-mono truncate hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{paper.doi}</span>
-                    </a>
-                  ) : paper.pdfUrl ? (
-                    <a
-                      href={paper.pdfUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 flex items-center gap-1 text-[11px] text-emerald-600 font-medium truncate hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                      <span className="truncate">View Publication Link</span>
-                    </a>
-                  ) : (
-                    <div className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground italic truncate">
-                      <span>Institutional Repository Record</span>
-                    </div>
-                  )}
+      ) : publications.length === 0 ? (
+        <div className="py-16 text-center rounded-2xl border border-dashed border-border bg-card/50 p-8 space-y-3">
+          <FileStack className="h-10 w-10 text-muted-foreground mx-auto" />
+          <h3 className="text-base font-semibold text-foreground">No publications found</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            {search
+              ? "No publications matched your search query."
+              : "No publications match the selected venue or status filter."}
+          </p>
+          {search && (
+            <Button variant="outline" size="sm" onClick={() => setSearch("")} className="text-xs">
+              Clear Search Query
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {publications.map((pub) => (
+            <div
+              key={pub.id}
+              className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md"
+            >
+              <div className="space-y-3">
+                {/* Header Badge Line */}
+                <div className="flex items-center justify-between gap-2">
+                  {getVenueBadge(pub)}
+                  {getStatusBadge(pub.status)}
                 </div>
 
-                <div className="mt-4 border-t border-border pt-3 flex items-center justify-between">
-                  <Badge variant="secondary" className="text-xs font-semibold text-primary gap-1">
-                    <Quote className="h-3 w-3" /> {paper.citationCount} Citations
-                  </Badge>
+                {/* Title */}
+                <h3
+                  onClick={() => setSelectedResearch(pub)}
+                  className="text-sm font-bold text-foreground leading-snug line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                >
+                  {pub.title}
+                </h3>
+
+                {/* Abstract Snippet */}
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                  {pub.abstract || "Abstract snippet unavailable."}
+                </p>
+              </div>
+
+              <div className="pt-4 mt-3 border-t border-border/60 space-y-2 text-xs">
+                {/* Authors Line */}
+                <div className="flex items-center gap-1.5 text-muted-foreground truncate">
+                  <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span className="truncate">
+                    {(pub.authors || []).map((a) => a.authorName).join(", ") || "Unknown Authors"}
+                  </span>
+                </div>
+
+                {/* Venue / Citation Stats */}
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span className="font-semibold text-foreground">
+                    {pub.publicationYear} • {pub.journal || pub.conference || "Institutional Repo"}
+                  </span>
+                  <span className="text-primary font-bold flex items-center gap-1">
+                    <Quote className="h-3 w-3" /> {pub.citationCount || 0} Citations
+                  </span>
+                </div>
+
+                {/* View Details Button */}
+                <div className="pt-1 flex items-center justify-between">
+                  {pub.doi ? (
+                    <a
+                      href={`https://doi.org/${pub.doi}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-medium text-emerald-600 hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="h-3 w-3" /> DOI: {pub.doi}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">No Registered DOI</span>
+                  )}
 
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setSelectedResearch(paper)}
-                    className="gap-1 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                    onClick={() => setSelectedResearch(pub)}
+                    className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10"
                   >
                     <Eye className="h-3.5 w-3.5" /> View Details
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Pagination Controls */}
-          {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-xs shadow-soft">
-              <span className="text-muted-foreground">
-                Page <strong className="text-foreground">{pagination.page}</strong> of{" "}
-                <strong className="text-foreground">{pagination.totalPages}</strong> ({pagination.total} total items)
-              </span>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="gap-1 text-xs"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                  className="gap-1 text-xs"
-                >
-                  Next <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-12 text-center">
-          <FileStack className="h-8 w-8 text-muted-foreground/60" />
-          <p className="mt-2 text-sm font-medium text-foreground">No publications found under selected filter</p>
-          <p className="mt-0.5 text-xs text-muted-foreground max-w-sm">
-            Try switching filter tabs or clearing your search term.
-          </p>
-          <Button size="sm" onClick={() => setIsSubmitOpen(true)} className="mt-4 gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Submit First Publication
-          </Button>
+          ))}
         </div>
       )}
 
+      {/* Pagination Bar */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2 text-xs">
+          <span className="text-muted-foreground">
+            Page {pagination.page} of {pagination.totalPages} ({pagination.total} total items)
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-8 px-2"
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= pagination.totalPages}
+              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              className="h-8 px-2"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
       <ResearchSubmissionModal open={isSubmitOpen} onOpenChange={setIsSubmitOpen} />
       <ResearchDetailModal
         open={!!selectedResearch}
-        onOpenChange={(open) => !open && setSelectedResearch(null)}
+        onOpenChange={(o) => {
+          if (!o) setSelectedResearch(null);
+        }}
         research={selectedResearch}
       />
     </div>

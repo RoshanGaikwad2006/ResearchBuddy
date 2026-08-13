@@ -32,6 +32,9 @@ export interface ResearchItem {
   doi?: string;
   journal?: string;
   conference?: string;
+  venueType?: string;
+  patentNumber?: string;
+  isbn?: string;
   publicationYear: number;
   pdfUrl?: string;
   citationCount: number;
