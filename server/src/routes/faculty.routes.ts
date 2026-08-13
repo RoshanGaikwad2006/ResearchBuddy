@@ -4,8 +4,11 @@ import {
   deleteFaculty,
   getFacultyById,
   getMyFacultyProfile,
+  getMyResearchIdentity,
   listFaculty,
+  syncMyResearchProfile,
   updateFaculty,
+  updateMyResearchIdentity,
 } from "../controllers/faculty.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -19,6 +22,9 @@ router.get("/public", listFaculty);
 router.use(authenticateToken);
 
 router.get("/me", getMyFacultyProfile);
+router.get("/me/research-identity", getMyResearchIdentity);
+router.put("/me/research-identity", updateMyResearchIdentity);
+router.post("/me/sync-research", syncMyResearchProfile);
 router.post("/", createFaculty);
 router.get("/", listFaculty);
 router.get("/:id", getFacultyById);

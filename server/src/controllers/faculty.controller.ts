@@ -1,6 +1,8 @@
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth.middleware.js";
 import { FacultyService } from "../services/faculty.service.js";
+import { FacultyResearchIdentityService } from "../services/facultyResearchIdentity.service.js";
+import { ScholarSyncAgent } from "../integrations/googleScholar/scholarSyncAgent.service.js";
 import { createFacultySchema, updateFacultySchema } from "../validation/faculty.validation.js";
 
 const getParamId = (param: string | string[] | undefined): string => {
@@ -19,6 +21,51 @@ export const getMyFacultyProfile = async (req: AuthenticatedRequest, res: Respon
     res.status(200).json({ faculty });
   } catch (error: any) {
     res.status(404).json({ message: error.message || "Faculty profile not found" });
+  }
+};
+
+export const getMyResearchIdentity = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const faculty = await FacultyService.getByUserId(req.user.id);
+    const identity = await FacultyResearchIdentityService.getFacultyResearchIdentity(faculty.id);
+    res.status(200).json(identity);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Failed to fetch research identity" });
+  }
+};
+
+export const updateMyResearchIdentity = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const faculty = await FacultyService.getByUserId(req.user.id);
+    const updated = await FacultyResearchIdentityService.updateResearchIdentity(faculty.id, req.body);
+    res.status(200).json(updated);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update research identity" });
+  }
+};
+
+export const syncMyResearchProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const faculty = await FacultyService.getByUserId(req.user.id);
+    const syncItem = await ScholarSyncAgent.syncSingleFaculty(faculty.id, { triggerType: "MANUAL_FACULTY" });
+    res.status(200).json({ message: "Synchronization completed successfully", item: syncItem });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Failed to sync research profile" });
   }
 };
 
