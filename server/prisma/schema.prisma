@@ -1,0 +1,595 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  FACULTY
+  STUDENT
+  RESEARCH_CELL
+}
+
+enum ResearchStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ACCEPTED
+  PUBLISHED
+  NEEDS_REVISION
+  REJECTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+// ==========================================
+// CORE AUTHENTICATION & USER MODEL
+// ==========================================
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(FACULTY)
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 1-to-1 Profile Relationships
+  facultyProfile Faculty?
+  studentProfile Student?
+
+  // 1-to-Many System Relationships
+  researchedCreated Research[]     @relation("ResearchCreator")
+  approvalsHandled  Approval[]     @relation("ApprovalReviewer")
+  notifications     Notification[]
+  savedReports      SavedReport[]
+  reportHistory     ReportHistory[]
+  auditRunsTriggered AuditRun[]      @relation("AuditRunTriggeredBy")
+  auditIssuesResolved AuditIssue[]   @relation("AuditIssueResolvedBy")
+  auditActionsTaken         AuditHistory[]     @relation("AuditActionBy")
+  scholarSyncRunsTriggered  ScholarSyncRun[]   @relation("ScholarSyncRunTriggeredBy")
+  aiQueryLogs               AIQueryLog[]
+
+  @@map("users")
+}
+
+// ==========================================
+// ACADEMIC STRUCTURE MODELS
+// ==========================================
+
+model Department {
+  id        String   @id @default(uuid())
+  code      String   @unique // e.g. "CSE", "ECE", "MECH"
+  name      String
+  headId    String?  @unique // References Faculty.id (Department Head)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  head       Faculty?   @relation("DepartmentHead", fields: [headId], references: [id])
+  faculties  Faculty[]  @relation("DepartmentFaculties")
+  students   Student[]  @relation("DepartmentStudents")
+  researches Research[] @relation("DepartmentResearches")
+  auditIssues AuditIssue[]
+  researchGaps ResearchGap[]
+
+  @@map("departments")
+}
+
+model Faculty {
+  id                String   @id @default(uuid())
+  userId            String   @unique // Foreign Key to User
+  employeeId        String   @unique
+  designation       String   // e.g. "Professor", "Assistant Professor"
+  departmentId      String   // Foreign Key to Department
+  orcid             String?  @unique
+  scholarUrl        String?
+  scholarAuthorId   String?
+  scholarAvatarUrl  String?
+  researcherId      String?  @unique
+  otherResearcherId String?
+  scholarSyncStatus String?  @default("NEVER_SYNCED")
+  scholarSyncError  String?  @db.Text
+  lastSyncTime      DateTime?
+  affiliation       String?
+  institutionalAffiliation String? @default("K. K. Wagh Institute of Engineering Education and Research")
+  profileCompleteness      Float   @default(0.0)
+  totalCitations    Int      @default(0)
+  hIndex            Int      @default(0)
+  i10Index          Int      @default(0)
+  publicationCount  Int      @default(0)
+  researchInterests String[] // Tags / areas of expertise
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relationships
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department         Department           @relation("DepartmentFaculties", fields: [departmentId], references: [id])
+  headingDepartment  Department?          @relation("DepartmentHead")
+  guidedStudents     Student[]            @relation("FacultyGuide")
+  researchAuthorships ResearchAuthor[]     @relation("FacultyAuthorships")
+  auditIssues        AuditIssue[]
+  syncRunItems       ScholarSyncRunItem[]
+  collaborationAsA   CollaborationRecommendation[] @relation("CollaborationFacultyA")
+  collaborationAsB   CollaborationRecommendation[] @relation("CollaborationFacultyB")
+  researchGaps       ResearchGap[]
+
+  @@map("faculties")
+}
+
+model Student {
+  id             String   @id @default(uuid())
+  userId         String   @unique // Foreign Key to User
+  rollNumber     String   @unique
+  departmentId   String   // Foreign Key to Department
+  guideFacultyId String?  // Foreign Key to Faculty (Guide)
+  academicYear   String   // e.g. "2023-2027", "Final Year"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relationships
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department          Department       @relation("DepartmentStudents", fields: [departmentId], references: [id])
+  guideFaculty        Faculty?         @relation("FacultyGuide", fields: [guideFacultyId], references: [id])
+  researchAuthorships ResearchAuthor[] @relation("StudentAuthorships")
+
+  @@map("students")
+}
+
+// ==========================================
+// RESEARCH MANAGEMENT MODELS
+// ==========================================
+
+model Research {
+  id              String         @id @default(uuid())
+  title           String
+  abstract        String         @db.Text
+  keywords        String[]
+  researchArea    String
+  doi             String?        @unique
+  journal         String?
+  conference      String?
+  publicationYear Int
+  pdfUrl          String?
+  citationCount   Int            @default(0)
+  status          ResearchStatus @default(DRAFT)
+  abstractSource  String?        @default("GOOGLE_SCHOLAR") // "MANUAL_KRIYA", "OPENALEX", "CROSSREF", "GOOGLE_SCHOLAR"
+  titleSource     String?        @default("GOOGLE_SCHOLAR")
+  doiSource       String?        @default("OPENALEX")
+  citationSource  String?        @default("GOOGLE_SCHOLAR")
+  venueSource     String?        @default("OPENALEX")
+  provenance      Json?          // Field-level provenance metadata dictionary
+  departmentId    String?        // Foreign Key to Department
+  createdById     String         // Foreign Key to User
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relationships
+  department Department?      @relation("DepartmentResearches", fields: [departmentId], references: [id])
+  createdBy  User            @relation("ResearchCreator", fields: [createdById], references: [id])
+  authors    ResearchAuthor[]
+  approvals  Approval[]
+  auditIssues AuditIssue[]
+  citationSnapshots CitationSnapshot[]
+  embedding  ResearchEmbedding?
+
+  @@map("researches")
+}
+
+model ResearchAuthor {
+  id                String    @id @default(uuid())
+  researchId        String    // Foreign Key to Research
+  facultyId         String?   // Nullable if author is student or external
+  studentId         String?   // Nullable if author is faculty or external
+  authorName        String    // Display name
+  authorOrder       Int       @default(1) // 1st author, 2nd author...
+  isCorresponding   Boolean   @default(false)
+  affiliation       String?
+  affiliationSource String?   @default("KRIYA_Internal") // "OpenAlex", "Crossref", "GoogleScholar", "MANUAL_ENTRY"
+  affiliationStatus String?   @default("UNVERIFIED") // "VERIFIED_EXTERNAL", "NEEDS_REVIEW", "MANUALLY_ENTERED"
+  enteredBy         String?   // UserId if manually entered
+  enteredAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  // Relationships
+  research Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  faculty  Faculty? @relation("FacultyAuthorships", fields: [facultyId], references: [id])
+  student  Student? @relation("StudentAuthorships", fields: [studentId], references: [id])
+
+  @@map("research_authors")
+}
+
+// ==========================================
+// APPROVAL & WORKFLOW MODELS
+// ==========================================
+
+model Approval {
+  id         String         @id @default(uuid())
+  researchId String         // Foreign Key to Research
+  reviewerId String         // Foreign Key to User (Research Cell / Admin)
+  status     ApprovalStatus @default(PENDING)
+  comments   String?        @db.Text
+  createdAt  DateTime       @default(now())
+
+  // Relationships
+  research Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  reviewer User     @relation("ApprovalReviewer", fields: [reviewerId], references: [id])
+
+  @@map("approvals")
+}
+
+// ==========================================
+// NOTIFICATION MODEL (FUTURE READY)
+// ==========================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   // Foreign Key to User
+  title     String
+  message   String
+  type      String   @default("INFO") // e.g. "APPROVAL_UPDATE", "PUBLICATION_SUBMITTED"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ==========================================
+// REPORT & AUDIT ENGINE MODELS
+// ==========================================
+
+model SavedReport {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  reportType  String   // e.g. "INSTITUTIONAL", "NAAC_CRITERION_3", "NIRF_RESEARCH", "DEPARTMENT", "FACULTY"
+  filters     String   @db.Text // JSON string of applied filters
+  columns     String[] // Selected column keys
+  grouping    String?  // Grouping field key
+  sorting     String?  // Sorting field key
+  userId      String   // Foreign Key to User
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_reports")
+}
+
+model ReportHistory {
+  id          String   @id @default(uuid())
+  userId      String   // Foreign Key to User
+  reportType  String
+  title       String
+  filters     String   @db.Text // JSON string of applied filters
+  format      String   // "EXCEL", "PDF", "CSV"
+  recordCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("report_history")
+}
+
+// ==========================================
+// RESEARCH DATA AUDITOR & INTEGRITY ENGINE ENUMS
+// ==========================================
+
+enum AuditScopeType {
+  INSTITUTIONAL
+  DEPARTMENT
+  FACULTY
+  PUBLICATION
+}
+
+enum AuditRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum AuditIssueType {
+  MISSING_PUBLICATION
+  DUPLICATE_PUBLICATION
+  METADATA_MISMATCH
+  AUTHOR_MISMATCH
+  DOI_MISMATCH
+  INVALID_DOI
+  MISSING_DOI
+  YEAR_MISMATCH
+  VENUE_MISMATCH
+  TITLE_MISMATCH
+  CITATION_DISCREPANCY
+  ABSTRACT_MISSING
+  KEYWORDS_MISSING
+  AUTHOR_MAPPING_MISSING
+  FACULTY_PROFILE_INCOMPLETE
+  SCHOLAR_PROFILE_MISMATCH
+  ORCID_MISMATCH
+  UNVERIFIED_RECORD
+  SYNC_FAILURE
+  SOURCE_CONFLICT
+}
+
+enum AuditSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum AuditIssueStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  IGNORED
+  AUTO_RESOLVED
+}
+
+enum AuditResolutionAction {
+  ACCEPT_EXTERNAL
+  ACCEPT_SCHOLAR
+  ACCEPT_OPENALEX
+  ACCEPT_CROSSREF
+  KEEP_KRIYA
+  MERGE
+  LINK_FACULTY
+  IGNORE
+  AUTO_FIX
+}
+
+// ==========================================
+// RESEARCH DATA AUDITOR & INTEGRITY ENGINE MODELS
+// ==========================================
+
+model AuditRun {
+  id                String         @id @default(uuid())
+  triggeredById     String         // Foreign Key to User
+  scopeType         AuditScopeType @default(INSTITUTIONAL)
+  targetId          String?        // DepartmentId, FacultyId, or ResearchId if scope is not INSTITUTIONAL
+  status            AuditRunStatus @default(RUNNING)
+  recordsScanned    Int            @default(0)
+  issuesDetected    Int            @default(0)
+  autoResolvedCount Int            @default(0)
+  humanReviewCount  Int            @default(0)
+  healthScore       Float          @default(100.0)
+  startedAt         DateTime       @default(now())
+  completedAt       DateTime?
+  error             String?
+
+  triggeredBy User         @relation("AuditRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: Cascade)
+  issues      AuditIssue[]
+
+  @@map("audit_runs")
+}
+
+model AuditIssue {
+  id                 String           @id @default(uuid())
+  auditRunId         String           // Foreign Key to AuditRun
+  issueType          AuditIssueType
+  severity           AuditSeverity    @default(MEDIUM)
+  status             AuditIssueStatus @default(OPEN)
+  confidence         Float            @default(100.0)
+  confidenceReasons  String?          @db.Text // JSON string of match/confidence reasons
+  fieldDiffs         String?          @db.Text // JSON string of field-level comparisons
+  externalSource     String           // "OpenAlex", "Crossref", "GoogleScholar", "ORCID", "KRIYA_Internal"
+  externalData       String?          @db.Text // JSON string of external record payload
+  researchId         String?          // Foreign Key to Research
+  facultyId          String?          // Foreign Key to Faculty
+  departmentId       String?          // Foreign Key to Department
+  detectedAt         DateTime         @default(now())
+  resolvedAt         DateTime?
+  resolvedById       String?          // Foreign Key to User
+
+  auditRun   AuditRun       @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+  research   Research?      @relation(fields: [researchId], references: [id], onDelete: SetNull)
+  faculty    Faculty?       @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  department Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  resolvedBy User?          @relation("AuditIssueResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  history    AuditHistory[]
+
+  @@index([departmentId, status])
+  @@index([facultyId, status])
+  @@index([status, issueType])
+  @@index([auditRunId])
+  @@map("audit_issues")
+}
+
+model AuditHistory {
+  id          String                @id @default(uuid())
+  issueId     String                // Foreign Key to AuditIssue
+  action      AuditResolutionAction
+  actionById  String                // Foreign Key to User
+  oldValue    String?               @db.Text // JSON string of prior state
+  newValue    String?               @db.Text // JSON string of new state
+  reason      String?               @db.Text
+  actionAt    DateTime              @default(now())
+
+  issue    AuditIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actionBy User       @relation("AuditActionBy", fields: [actionById], references: [id], onDelete: Cascade)
+
+  @@map("audit_history")
+}
+
+// ==========================================
+// SCHOLAR SYNC AGENT MODELS & ENUMS
+// ==========================================
+
+enum ScholarSyncTrigger {
+  MANUAL_FACULTY
+  ADMIN_FACULTY
+  INSTITUTIONAL_MANUAL
+  INSTITUTIONAL_CRON
+}
+
+enum ScholarSyncStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+  RATE_LIMITED
+}
+
+model ScholarSyncRun {
+  id                     String             @id @default(uuid())
+  startedAt              DateTime           @default(now())
+  completedAt            DateTime?
+  status                 ScholarSyncStatus  @default(RUNNING)
+  triggeredById          String?            // Null for system cron
+  triggerType            ScholarSyncTrigger @default(INSTITUTIONAL_CRON)
+  facultiesProcessed     Int                @default(0)
+  publicationsDiscovered Int                @default(0)
+  publicationsAdded      Int                @default(0)
+  publicationsUpdated    Int                @default(0)
+  citationsUpdated       Int                @default(0)
+  duplicatesDetected     Int                @default(0)
+  errorsCount            Int                @default(0)
+
+  triggeredBy User?                @relation("ScholarSyncRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  items       ScholarSyncRunItem[]
+
+  @@map("scholar_sync_runs")
+}
+
+model ScholarSyncRunItem {
+  id                     String            @id @default(uuid())
+  syncRunId              String            // Foreign Key to ScholarSyncRun
+  facultyId              String            // Foreign Key to Faculty
+  status                 ScholarSyncStatus @default(SUCCESS)
+  publicationsDiscovered Int               @default(0)
+  publicationsAdded      Int               @default(0)
+  publicationsUpdated    Int               @default(0)
+  citationsUpdated       Int               @default(0)
+  error                  String?           @db.Text
+  processedAt            DateTime          @default(now())
+
+  syncRun ScholarSyncRun @relation(fields: [syncRunId], references: [id], onDelete: Cascade)
+  faculty Faculty        @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@map("scholar_sync_run_items")
+}
+
+model CitationSnapshot {
+  id                String   @id @default(uuid())
+  researchId        String   // Foreign Key to Research
+  source            String   @default("GOOGLE_SCHOLAR") // "GOOGLE_SCHOLAR", "OPENALEX", "CROSSREF", "KRIYA"
+  scholarCitations  Int      @default(0)
+  openAlexCitations Int      @default(0)
+  crossrefCitations Int      @default(0)
+  kriyaCitations    Int      @default(0)
+  recordedDate      String   @default("") // Time bucket formatted e.g. "YYYY-MM-DD"
+  recordedAt        DateTime @default(now())
+
+  research Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@unique([researchId, source, recordedDate])
+  @@map("citation_snapshots")
+}
+
+// ==========================================
+// AI RESEARCH INTELLIGENCE ENGINE MODELS
+// ==========================================
+
+model ResearchEmbedding {
+  id             String   @id @default(uuid())
+  researchId     String   @unique // Foreign Key to Research
+  canonicalText  String   @db.Text
+  vectorJson     String   @db.Text // Store vector array as JSON string for max cross-database compatibility
+  embeddingModel String   @default("text-embedding-3-small")
+  contentHash    String   @default("")
+  embeddedAt     DateTime @default(now())
+
+  research Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  @@map("research_embeddings")
+}
+
+model ResearchTopic {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  normalizedName String   @unique
+  category       String?
+  researchCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("research_topics")
+}
+
+model ResearchGap {
+  id                    String   @id @default(uuid())
+  gapTitle              String
+  description           String   @db.Text
+  institutionalEvidence String   @db.Text // KRIYA DB paper counts, trends, coverage
+  externalEvidence      String   @db.Text // OpenAlex/Crossref/Scholar signals
+  aiInference           String   @db.Text // Structured AI analysis
+  relatedTopics         String   @db.Text // JSON string array
+  confidence            Float    @default(80.0)
+  opportunityScore      Float    @default(80.0) // 0-100 deterministic formula score
+  supportingResearchIds String   @db.Text // JSON string array of Research IDs
+  departmentId          String?
+  facultyId             String?
+  limitations           String   @db.Text // Mandatory disclaimer
+  generatedAt           DateTime @default(now())
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  faculty    Faculty?    @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+
+  @@map("research_gaps")
+}
+
+model CollaborationRecommendation {
+  id                     String   @id @default(uuid())
+  facultyAId             String
+  facultyBId             String
+  compatibilityScore     Float    @default(80.0) // 0-100 deterministic score
+  sharedTopics           String   @db.Text // JSON string array
+  complementaryExpertise String   @db.Text // JSON string array
+  potentialDirection     String   @db.Text
+  evidence               String   @db.Text // JSON string of paper IDs and metadata
+  reasoning              String   @db.Text
+  generatedAt            DateTime @default(now())
+
+  facultyA Faculty @relation("CollaborationFacultyA", fields: [facultyAId], references: [id], onDelete: Cascade)
+  facultyB Faculty @relation("CollaborationFacultyB", fields: [facultyBId], references: [id], onDelete: Cascade)
+
+  @@unique([facultyAId, facultyBId])
+  @@map("collaboration_recommendations")
+}
+
+model AIQueryLog {
+  id           String   @id @default(uuid())
+  userId       String
+  query        String   @db.Text
+  response     String   @db.Text
+  evidence     String?  @db.Text
+  latencyMs    Int      @default(0)
+  modelUsed    String   @default("openai/gpt-4o-mini")
+  resultStatus String   @default("SUCCESS")
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_query_logs")
+}
+
