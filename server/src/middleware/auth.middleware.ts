@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -18,15 +19,25 @@ export const authenticateToken = (
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    res.status(401).json({ message: "Access token missing or invalid" });
+    res.status(401).json({
+      success: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Access token missing or invalid",
+      },
+    });
     return;
   }
 
-  const secret = process.env.JWT_SECRET || "fallback_secret_kriya";
-
-  jwt.verify(token, secret, (err, decoded) => {
+  jwt.verify(token, env.JWT_SECRET, (err, decoded) => {
     if (err || !decoded) {
-      res.status(401).json({ message: "Session expired or token invalid" });
+      res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Session expired or token invalid",
+        },
+      });
       return;
     }
 
@@ -38,15 +49,29 @@ export const authenticateToken = (
 export const checkRole = (allowedRoles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
       return;
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ message: `Forbidden: Action requires one of [${allowedRoles.join(", ")}] roles` });
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: `Forbidden: Action requires one of [${allowedRoles.join(", ")}] roles`,
+        },
+      });
       return;
     }
 
     next();
   };
 };
+
+export const requireRole = checkRole;

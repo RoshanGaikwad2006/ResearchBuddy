@@ -28,26 +28,49 @@ export interface SingleSyncResult {
 }
 
 export class ScholarSyncAgent {
+  private static activeSyncLocks = new Set<string>();
+
   /**
-   * Cooldown check helper
+   * Evaluates sync cooldown (6 hours minimum between automatic background syncs)
    */
-  static isCooldownActive(lastSyncTime: Date | null, cooldownHours = 24): { inCooldown: boolean; retryAfterSeconds: number } {
-    if (!lastSyncTime) return { inCooldown: false, retryAfterSeconds: 0 };
-    const cooldownMs = cooldownHours * 60 * 60 * 1000;
-    const elapsedMs = Date.now() - new Date(lastSyncTime).getTime();
-    if (elapsedMs < cooldownMs) {
-      return {
-        inCooldown: true,
-        retryAfterSeconds: Math.ceil((cooldownMs - elapsedMs) / 1000),
-      };
+  private static isCooldownActive(lastSyncTime: Date | null | undefined): { inCooldown: boolean; remainingMinutes: number } {
+    if (!lastSyncTime) return { inCooldown: false, remainingMinutes: 0 };
+    const sixHoursMs = 6 * 60 * 60 * 1000;
+    const elapsed = Date.now() - new Date(lastSyncTime).getTime();
+    if (elapsed < sixHoursMs) {
+      const remainingMs = sixHoursMs - elapsed;
+      return { inCooldown: true, remainingMinutes: Math.ceil(remainingMs / (60 * 1000)) };
     }
-    return { inCooldown: false, retryAfterSeconds: 0 };
+    return { inCooldown: false, remainingMinutes: 0 };
   }
 
   /**
-   * Synchronize a single faculty member profile safely with idempotency and strong identity verification.
+   * Idempotent, locked synchronization of a single faculty member's profile
    */
   static async syncSingleFaculty(facultyId: string, options: SyncOptions = {}): Promise<SingleSyncResult> {
+    if (this.activeSyncLocks.has(facultyId)) {
+      console.warn(`[ScholarSyncAgent] Sync already active for faculty '${facultyId}'. Skipping duplicate concurrent execution.`);
+      return {
+        facultyId,
+        status: "SUCCESS",
+        publicationsDiscovered: 0,
+        publicationsAdded: 0,
+        publicationsUpdated: 0,
+        citationsUpdated: 0,
+        error: "Sync already in progress.",
+      };
+    }
+
+    this.activeSyncLocks.add(facultyId);
+
+    try {
+      return await this.executeSingleFacultySync(facultyId, options);
+    } finally {
+      this.activeSyncLocks.delete(facultyId);
+    }
+  }
+
+  private static async executeSingleFacultySync(facultyId: string, options: SyncOptions = {}): Promise<SingleSyncResult> {
     const faculty = await prisma.faculty.findUnique({
       where: { id: facultyId },
       include: { user: true, department: true },
@@ -88,7 +111,7 @@ export class ScholarSyncAgent {
         publicationsAdded: 0,
         publicationsUpdated: 0,
         citationsUpdated: 0,
-        error: `Cooldown active. Next sync permitted in ${Math.ceil(cooldown.retryAfterSeconds / 60)} minutes. Use force=true to bypass.`,
+        error: `Cooldown active. Next sync permitted in ${cooldown.remainingMinutes} minutes. Use force=true to bypass.`,
       };
     }
 

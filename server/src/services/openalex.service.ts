@@ -1,4 +1,5 @@
 import { FieldReconciliationService } from "./fieldReconciliation.service.js";
+import { resilientFetch } from "../utils/resilientFetch.js";
 
 export interface StandardDoiMetadata {
   doi: string;
@@ -20,13 +21,15 @@ export class OpenAlexService {
     const url = `https://api.openalex.org/works/https://doi.org/${cleanDoi}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await resilientFetch(url, {
         headers: {
           "User-Agent": "KRIYA-Research-Platform/1.0 (mailto:admin@university.edu)",
         },
+        maxRetries: 3,
+        timeoutMs: 10000,
       });
 
-      if (!response.ok) {
+      if (!response || !response.ok) {
         return null;
       }
 

@@ -166,9 +166,12 @@ export class FacultyResearchIdentityService {
       throw new Error(`Faculty record ${facultyId} not found.`);
     }
 
-    // Publication Counts & Classification (Journal vs Conference)
+    // Publication Counts & Classification based on venueType (JOURNAL, CONFERENCE, PATENT, BOOK, OTHER)
     let journalCount = 0;
     let conferenceCount = 0;
+    let patentCount = 0;
+    let bookCount = 0;
+    let otherCount = 0;
 
     const uniqueResearches = new Map<string, any>();
     faculty.researchAuthorships.forEach((a) => {
@@ -178,13 +181,19 @@ export class FacultyResearchIdentityService {
     });
 
     uniqueResearches.forEach((r) => {
-      if (r.journal || (r.conference && r.conference.toLowerCase().includes("journal"))) {
-        journalCount++;
-      } else if (r.conference) {
-        conferenceCount++;
-      } else {
-        journalCount++; // Default to Journal
-      }
+      const text = `${r.title || ""} ${r.journal || ""} ${r.conference || ""}`.toLowerCase();
+      const vType = r.venueType || (
+        r.patentNumber || /patent/i.test(text) ? "PATENT" :
+        r.isbn || /isbn/i.test(text) ? "BOOK" :
+        r.conference ? "CONFERENCE" :
+        r.journal ? "JOURNAL" : "JOURNAL"
+      );
+
+      if (vType === "JOURNAL") journalCount++;
+      else if (vType === "CONFERENCE") conferenceCount++;
+      else if (vType === "PATENT") patentCount++;
+      else if (vType === "BOOK") bookCount++;
+      else otherCount++;
     });
 
     const completeness = this.calculateCompleteness({

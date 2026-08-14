@@ -192,6 +192,11 @@ model Research {
   citationSnapshots CitationSnapshot[]
   embedding  ResearchEmbedding?
 
+  @@index([createdById, status])
+  @@index([departmentId, status])
+  @@index([publicationYear])
+  @@index([status])
+  @@index([venueType])
   @@map("researches")
 }
 
@@ -215,6 +220,9 @@ model ResearchAuthor {
   faculty  Faculty? @relation("FacultyAuthorships", fields: [facultyId], references: [id])
   student  Student? @relation("StudentAuthorships", fields: [studentId], references: [id])
 
+  @@index([facultyId])
+  @@index([researchId])
+  @@index([studentId])
   @@map("research_authors")
 }
 

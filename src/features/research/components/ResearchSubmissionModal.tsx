@@ -128,42 +128,51 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
     );
   };
 
+  const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
+
   const onSubmit = async (values: any) => {
-    const keywords = keywordsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    if (isSubmittingLocal || createMutation.isPending) return;
+    setIsSubmittingLocal(true);
 
-    await createMutation.mutateAsync({
-      title: values.title,
-      abstract: values.abstract,
-      keywords: keywords.length > 0 ? keywords : ["Research"],
-      researchArea: values.researchArea,
-      doi: values.doi || null,
-      journal: venueCategory === "JOURNAL" ? (values.journal || null) : null,
-      conference: venueCategory === "CONFERENCE" ? (values.conference || null) : null,
-      venueType: venueCategory,
-      patentNumber: venueCategory === "PATENT" ? (values.patentNumber || null) : null,
-      isbn: venueCategory === "BOOK" ? (values.isbn || null) : null,
-      publicationYear: Number(values.publicationYear),
-      pdfUrl: values.pdfUrl || null,
-      departmentId: values.departmentId || null,
-      authors: authorsList.map((a, idx) => ({
-        facultyId: a.facultyId || undefined,
-        studentId: a.studentId || undefined,
-        authorName: a.authorName || "Unknown Author",
-        authorOrder: idx + 1,
-        isCorresponding: a.isCorresponding,
-      })),
-    });
+    try {
+      const keywords = keywordsText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-    reset();
-    setDoiInput("");
-    setKeywordsText("");
-    onOpenChange(false);
+      await createMutation.mutateAsync({
+        title: values.title,
+        abstract: values.abstract,
+        keywords: keywords.length > 0 ? keywords : ["Research"],
+        researchArea: values.researchArea,
+        doi: values.doi || null,
+        journal: venueCategory === "JOURNAL" ? (values.journal || null) : null,
+        conference: venueCategory === "CONFERENCE" ? (values.conference || null) : null,
+        venueType: venueCategory,
+        patentNumber: venueCategory === "PATENT" ? (values.patentNumber || null) : null,
+        isbn: venueCategory === "BOOK" ? (values.isbn || null) : null,
+        publicationYear: Number(values.publicationYear),
+        pdfUrl: values.pdfUrl || null,
+        departmentId: values.departmentId || null,
+        authors: authorsList.map((a, idx) => ({
+          facultyId: a.facultyId || undefined,
+          studentId: a.studentId || undefined,
+          authorName: a.authorName || "Unknown Author",
+          authorOrder: idx + 1,
+          isCorresponding: a.isCorresponding,
+        })),
+      });
+
+      reset();
+      setDoiInput("");
+      setKeywordsText("");
+      onOpenChange(false);
+    } finally {
+      setIsSubmittingLocal(false);
+    }
   };
 
-  const isLoading = createMutation.isPending || doiPreviewMutation.isPending;
+  const isLoading = createMutation.isPending || doiPreviewMutation.isPending || isSubmittingLocal;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
