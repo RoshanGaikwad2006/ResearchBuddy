@@ -23,7 +23,7 @@ export const getMyResearches = async (req: AuthenticatedRequest, res: Response):
       status: status as ResearchStatus | undefined,
       publicationYear: publicationYear ? Number(publicationYear) : undefined,
       page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 10,
+      limit: limit ? Number(limit) : 100,
     });
 
     res.status(200).json(result);

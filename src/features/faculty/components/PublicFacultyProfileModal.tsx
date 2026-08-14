@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Quote, GraduationCap, Building2, Mail, Users, FileText, CheckCircle2, Eye, BookOpen, Loader2 } from "lucide-react";
+import { ExternalLink, Quote, GraduationCap, Building2, Mail, Users, FileText, CheckCircle2, Eye, BookOpen, Loader2, Award, Book, Layers, Filter } from "lucide-react";
 import type { FacultyItem } from "@/services/faculty.service";
 import { useFacultyDetail } from "../hooks/useFaculty";
 import { ResearchDetailModal } from "@/features/research/components/ResearchDetailModal";
@@ -22,6 +22,7 @@ interface PublicFacultyProfileModalProps {
 export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: PublicFacultyProfileModalProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "publications" | "profile">("overview");
   const [search, setSearch] = useState("");
+  const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
   const [selectedResearch, setSelectedResearch] = useState<ResearchItem | null>(null);
 
   // Fetch full faculty details including all publications
@@ -37,17 +38,71 @@ export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: Publi
   const rawList = (targetFaculty as any).publications || (targetFaculty as any).researchAuthorships?.map((ra: any) => ra.research) || [];
   const allPublications: ResearchItem[] = rawList.filter((p: any) => p && p.title);
 
-  // Filter publications by search term
+  // Filter publications by search term AND venue type category
   const filteredPublications = allPublications.filter((p) => {
+    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+    const type = p.venueType || (
+      /patent/i.test(text) ? "PATENT" :
+      /isbn/i.test(text) ? "BOOK" :
+      p.conference ? "CONFERENCE" : "JOURNAL"
+    );
+
+    let matchesCategory = true;
+    if (venueFilter === "JOURNAL") matchesCategory = type === "JOURNAL" || (!!p.journal && !p.conference && type !== "PATENT" && type !== "BOOK");
+    else if (venueFilter === "CONFERENCE") matchesCategory = type === "CONFERENCE" || (!!p.conference && !p.journal && type !== "PATENT" && type !== "BOOK");
+    else if (venueFilter === "PATENT") matchesCategory = type === "PATENT" || /patent/i.test(text);
+    else if (venueFilter === "BOOK") matchesCategory = type === "BOOK" || /isbn/i.test(text);
+    else if (venueFilter === "OTHER") matchesCategory = type === "OTHER";
+
+    if (!matchesCategory) return false;
+
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
       p.title?.toLowerCase().includes(q) ||
       p.abstract?.toLowerCase().includes(q) ||
       p.doi?.toLowerCase().includes(q) ||
-      p.journal?.toLowerCase().includes(q)
+      p.journal?.toLowerCase().includes(q) ||
+      p.patentNumber?.toLowerCase().includes(q) ||
+      p.isbn?.toLowerCase().includes(q)
     );
   });
+
+  const getVenueBadge = (p: ResearchItem) => {
+    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+    const type = p.venueType || (
+      /patent/i.test(text) ? "PATENT" :
+      /isbn/i.test(text) ? "BOOK" :
+      p.conference ? "CONFERENCE" : "JOURNAL"
+    );
+
+    if (type === "PATENT" || /patent/i.test(text)) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1 font-semibold">
+          <Award className="h-3 w-3" /> Patent {p.patentNumber ? `— ${p.patentNumber}` : ""}
+        </Badge>
+      );
+    }
+    if (type === "BOOK" || /isbn/i.test(text)) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 font-semibold">
+          <Book className="h-3 w-3" /> Book / ISBN {p.isbn ? `— ${p.isbn}` : ""}
+        </Badge>
+      );
+    }
+    if (type === "CONFERENCE" || p.conference) {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 gap-1 font-semibold">
+          <Layers className="h-3 w-3" /> Conference
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1 font-semibold">
+        <BookOpen className="h-3 w-3" /> Journal
+      </Badge>
+    );
+  };
 
   // Avatar image fallback handler
   const avatarSrc = user?.avatarUrl || (targetFaculty.scholarUrl ? `https://scholar.googleusercontent.com/citations?view_op=medium_photo&user=${targetFaculty.scholarUrl.split("user=")[1]?.split("&")[0] || ""}` : null);
@@ -252,21 +307,52 @@ export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: Publi
           {/* TAB 2: PUBLICATIONS & RESEARCH */}
           {activeTab === "publications" && (
             <div className="space-y-4 py-3">
-              {/* Search Bar */}
-              <div className="relative max-w-md">
-                <input
-                  type="text"
-                  placeholder="Search publications by title, DOI, or venue..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-9 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <FileText className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              {/* Category Filter Tabs & Search Bar */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs">
+                {/* 6 Venue Category Filter Tabs */}
+                <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-2.5">
+                  <span className="text-xs font-bold text-muted-foreground mr-1 flex items-center gap-1">
+                    <Filter className="h-3.5 w-3.5 text-primary" /> Filter Category:
+                  </span>
+                  {[
+                    { id: "ALL", label: "All Types" },
+                    { id: "JOURNAL", label: "Journals" },
+                    { id: "CONFERENCE", label: "Conferences" },
+                    { id: "PATENT", label: "Patents" },
+                    { id: "BOOK", label: "Books & ISBN" },
+                    { id: "OTHER", label: "Others" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setVenueFilter(tab.id as any)}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        venueFilter === tab.id
+                          ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative max-w-md">
+                  <input
+                    type="text"
+                    placeholder="Search publications by title, DOI, venue, patent number..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-card px-3 py-2 pl-9 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <FileText className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                </div>
               </div>
 
               {filteredPublications.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-xs text-muted-foreground">
-                  No research papers match your search criteria.
+                  No research papers match your search or category filter.
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -276,10 +362,13 @@ export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: Publi
                       className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-soft transition-all hover:border-primary/40 hover:shadow-card"
                     >
                       <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-                            {paper.publicationYear}
-                          </Badge>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            {getVenueBadge(paper)}
+                            <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
+                              {paper.publicationYear}
+                            </Badge>
+                          </div>
                           {paper.citationCount > 0 && (
                             <Badge variant="outline" className="text-[10px] font-medium text-amber-700 bg-amber-500/10 border-amber-500/30 gap-1 py-0">
                               <Quote className="h-2.5 w-2.5" /> {paper.citationCount} Citations

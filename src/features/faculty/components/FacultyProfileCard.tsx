@@ -44,13 +44,13 @@ export function FacultyProfileCard() {
   const [interestsText, setInterestsText] = useState("");
   const [affiliationInput, setAffiliationInput] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"ALL" | "JOURNAL" | "CONFERENCE">("ALL");
+  const [activeTab, setActiveTab] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
 
   // Editing Author Affiliation Modal State
   const [editingAuthor, setEditingAuthor] = useState<{ researchId: string; authorId: string; authorName: string; currentAffiliation: string } | null>(null);
   const [manualAffiliationText, setManualAffiliationText] = useState("");
 
-  const { data: myPubsData, refetch: refetchPubs } = useMyResearchList();
+  const { data: myPubsData, refetch: refetchPubs } = useMyResearchList({ limit: 100 });
 
   const loadIdentity = async () => {
     try {
@@ -147,9 +147,59 @@ export function FacultyProfileCard() {
   }
 
   const pubsList = myPubsData?.items || [];
-  const journalPubs = pubsList.filter((p) => p.journal || !p.conference);
-  const conferencePubs = pubsList.filter((p) => p.conference && !p.journal);
-  const filteredPubs = activeTab === "JOURNAL" ? journalPubs : activeTab === "CONFERENCE" ? conferencePubs : pubsList;
+
+  const getVenueType = (p: any) => {
+    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+    return p.venueType || (
+      p.patentNumber || /patent/i.test(text) ? "PATENT" :
+      p.isbn || /isbn/i.test(text) ? "BOOK" :
+      p.conference ? "CONFERENCE" :
+      p.journal ? "JOURNAL" : "JOURNAL"
+    );
+  };
+
+  const journalPubs = pubsList.filter((p) => getVenueType(p) === "JOURNAL");
+  const conferencePubs = pubsList.filter((p) => getVenueType(p) === "CONFERENCE");
+  const patentPubs = pubsList.filter((p) => getVenueType(p) === "PATENT");
+  const bookPubs = pubsList.filter((p) => getVenueType(p) === "BOOK");
+  const otherPubs = pubsList.filter((p) => getVenueType(p) === "OTHER");
+
+  const filteredPubs =
+    activeTab === "JOURNAL" ? journalPubs :
+    activeTab === "CONFERENCE" ? conferencePubs :
+    activeTab === "PATENT" ? patentPubs :
+    activeTab === "BOOK" ? bookPubs :
+    activeTab === "OTHER" ? otherPubs : pubsList;
+
+  const getVenueBadge = (p: any) => {
+    const vType = getVenueType(p);
+    if (vType === "PATENT") {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1 font-semibold">
+          <Award className="h-3 w-3" /> Patent {p.patentNumber ? `— ${p.patentNumber}` : ""}
+        </Badge>
+      );
+    }
+    if (vType === "BOOK") {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 font-semibold">
+          <Book className="h-3 w-3" /> Book / ISBN {p.isbn ? `— ${p.isbn}` : ""}
+        </Badge>
+      );
+    }
+    if (vType === "CONFERENCE") {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 gap-1 font-semibold">
+          <Layers className="h-3 w-3" /> Conference
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1 font-semibold">
+        <BookOpen className="h-3 w-3" /> Journal
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -354,26 +404,29 @@ export function FacultyProfileCard() {
             </p>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg text-xs font-semibold">
-            <button
-              onClick={() => setActiveTab("ALL")}
-              className={`px-3 py-1 rounded-md transition ${activeTab === "ALL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
-            >
-              All ({pubsList.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("JOURNAL")}
-              className={`px-3 py-1 rounded-md transition ${activeTab === "JOURNAL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
-            >
-              Journals ({journalPubs.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("CONFERENCE")}
-              className={`px-3 py-1 rounded-md transition ${activeTab === "CONFERENCE" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"}`}
-            >
-              Conferences ({conferencePubs.length})
-            </button>
+          {/* 6 Category Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1.5 rounded-xl text-xs font-semibold">
+            {[
+              { id: "ALL", label: `All (${pubsList.length})` },
+              { id: "JOURNAL", label: `Journals (${journalPubs.length})` },
+              { id: "CONFERENCE", label: `Conferences (${conferencePubs.length})` },
+              { id: "PATENT", label: `Patents (${patentPubs.length})` },
+              { id: "BOOK", label: `Books & ISBN (${bookPubs.length})` },
+              { id: "OTHER", label: `Others (${otherPubs.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === tab.id
+                    ? "bg-card text-foreground font-bold shadow-xs border border-border"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -384,9 +437,12 @@ export function FacultyProfileCard() {
               <div key={p.id} className="p-4 rounded-xl bg-muted/20 border border-border/70 hover:border-primary/40 transition space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-primary/10 text-primary mb-1 inline-block">
-                      {p.journal ? "JOURNAL" : p.conference ? "CONFERENCE" : "PUBLICATION"}
-                    </span>
+                    <div className="mb-1.5 flex items-center gap-2">
+                      {getVenueBadge(p)}
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                        {p.publicationYear}
+                      </span>
+                    </div>
                     <h4 className="text-sm font-bold text-foreground leading-snug">{p.title}</h4>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 shrink-0">
