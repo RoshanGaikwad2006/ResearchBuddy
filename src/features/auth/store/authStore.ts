@@ -46,7 +46,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await loginApi(credentials);
-      const token = res.accessToken || res.token;
+      // Support both envelope response (res.data.token) and direct response (res.token)
+      const payload = (res as any)?.data || res;
+      const token = payload.accessToken || payload.token || res.accessToken || res.token;
       
       if (!token) {
         throw new Error("Invalid response from server: Token missing.");
@@ -54,9 +56,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       setStoredToken(token);
 
-      const userRole = res.user?.role || res.role || "FACULTY";
+      const rawUser = payload.user || res.user;
+      const userRole = rawUser?.role || payload.role || res.role || "FACULTY";
       const userObj: User = {
-        ...res.user,
+        ...rawUser,
         role: userRole,
       };
 
@@ -89,13 +92,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await registerApi(data);
-      const token = res.accessToken || res.token;
+      const payload = (res as any)?.data || res;
+      const token = payload.accessToken || payload.token || res.accessToken || res.token;
+      const rawUser = payload.user || res.user;
 
-      if (token && res.user) {
+      if (token && rawUser) {
         setStoredToken(token);
-        const userRole = res.user.role || data.role;
+        const userRole = rawUser.role || data.role;
         const userObj: User = {
-          ...res.user,
+          ...rawUser,
           role: userRole,
         };
         set({
@@ -117,6 +122,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error: any) {
       set({ isLoading: false });
       const errorMessage =
+        error.response?.data?.error?.message ||
         error.response?.data?.message ||
         error.response?.data?.error ||
         error.message ||
@@ -156,10 +162,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const meRes = await getMeApi();
-      if (meRes?.user) {
-        const userRole = meRes.user.role || meRes.role || "FACULTY";
+      const mePayload = (meRes as any)?.data || meRes;
+      const meUser = mePayload.user || meRes?.user;
+
+      if (meUser) {
+        const userRole = meUser.role || mePayload.role || meRes.role || "FACULTY";
         set({
-          user: { ...meRes.user, role: userRole },
+          user: { ...meUser, role: userRole },
           role: userRole,
           token: existingToken,
           isAuthenticated: true,

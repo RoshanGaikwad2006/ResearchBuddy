@@ -60,7 +60,10 @@ apiClient.interceptors.response.use(
     }
 
     const { status, data } = error.response;
-    const message = data?.message || data?.error || "An unexpected error occurred.";
+    const message =
+      data?.error?.message ||
+      data?.message ||
+      (typeof data?.error === "string" ? data.error : "An unexpected error occurred.");
 
     switch (status) {
       case 401:
