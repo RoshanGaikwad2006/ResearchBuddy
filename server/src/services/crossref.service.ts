@@ -1,4 +1,5 @@
 import type { StandardDoiMetadata } from "./openalex.service.js";
+import { resilientFetch } from "../utils/resilientFetch.js";
 
 export class CrossrefService {
   static async fetchMetadata(doi: string): Promise<StandardDoiMetadata | null> {
@@ -6,13 +7,15 @@ export class CrossrefService {
     const url = `https://api.crossref.org/works/${cleanDoi}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await resilientFetch(url, {
         headers: {
           "User-Agent": "KRIYA-Research-Platform/1.0 (mailto:admin@university.edu)",
         },
+        maxRetries: 3,
+        timeoutMs: 10000,
       });
 
-      if (!response.ok) {
+      if (!response || !response.ok) {
         return null;
       }
 
