@@ -126,7 +126,7 @@ export const listResearches = async (req: AuthenticatedRequest, res: Response): 
 export const updateAuthorAffiliation = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.user?.id) {
-      res.status(401).json({ message: "Unauthorized" });
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized" } });
       return;
     }
 
@@ -134,7 +134,32 @@ export const updateAuthorAffiliation = async (req: AuthenticatedRequest, res: Re
     const { affiliation } = req.body;
 
     if (!affiliation || affiliation.trim() === "") {
-      res.status(400).json({ message: "Affiliation text is required" });
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Affiliation text is required" } });
+      return;
+    }
+
+    // Resolve Author & Parent Research ownership to prevent IDOR vulnerabilities
+    const authorRecord = await prisma.researchAuthor.findUnique({
+      where: { id: authorId },
+      include: { research: true },
+    });
+
+    if (!authorRecord) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Research author record not found" } });
+      return;
+    }
+
+    const isOwner = authorRecord.research.createdById === req.user.id;
+    const isAdminOrResearchCell = req.user.role === "ADMIN" || req.user.role === "RESEARCH_CELL";
+
+    if (!isOwner && !isAdminOrResearchCell) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Forbidden: You are not authorized to update author affiliations for this publication",
+        },
+      });
       return;
     }
 
@@ -149,8 +174,15 @@ export const updateAuthorAffiliation = async (req: AuthenticatedRequest, res: Re
       },
     });
 
-    res.status(200).json({ message: "Author affiliation updated successfully", author: updatedAuthor });
+    res.status(200).json({
+      success: true,
+      message: "Author affiliation updated successfully",
+      data: { author: updatedAuthor },
+    });
   } catch (error: any) {
-    res.status(400).json({ message: error.message || "Failed to update author affiliation" });
+    res.status(400).json({
+      success: false,
+      error: { code: "VALIDATION_ERROR", message: error.message || "Failed to update author affiliation" },
+    });
   }
 };
