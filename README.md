@@ -669,8 +669,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Author
 
-* **Kalpesh Bire** — *Full Stack Engineer & System Architect* — [kalpeshbire2006@gmail.com](mailto:kalpeshbire2006@gmail.com)
 * **Roshan Gaikwad** — *AI Integration Specialist* — [roshangaikwad2006@gmail.com](mailto:roshangaikwad2006@gmail.com)
+* **Kalpesh Bire** — *Full Stack Engineer & System Architect* — [kalpeshbire2006@gmail.com](mailto:kalpeshbire2006@gmail.com)
+
 
 ---
 
