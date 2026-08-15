@@ -13,6 +13,36 @@ KRIYA is an enterprise-grade SaaS platform engineered for academic institutions 
 
 ---
 
+## Table of Contents
+* [Short Description](#short-description)
+* [Problem Statement](#problem-statement)
+* [Solution](#solution)
+* [Key Features](#key-features)
+* [How It Works](#how-it-works)
+* [Project Architecture](#project-architecture)
+* [Folder Structure](#folder-structure)
+* [Technology Stack](#technology-stack)
+* [Database Design](#database-design)
+* [API Documentation](#api-documentation)
+* [Authentication & Authorization](#authentication--authorization)
+* [Security](#security)
+* [Installation](#installation)
+* [Environment Variables](#environment-variables)
+* [Screenshots](#screenshots)
+* [Usage](#usage)
+* [Project Workflow](#project-workflow)
+* [Error Handling](#error-handling)
+* [Performance Optimizations](#performance-optimizations)
+* [Deployment](#deployment)
+* [Limitations](#limitations)
+* [Future Improvements](#future-improvements)
+* [Contributing](#contributing)
+* [License](#license)
+* [Author](#author)
+* [Acknowledgements](#acknowledgements)
+
+---
+
 ## Short Description
 KRIYA (Institutional Research Platform) is a modern web application designed for universities to manage research publication portfolios. By synchronizing academic profiles across Google Scholar, ORCID, and Crossref, KRIYA consolidates publications, automates citation metric calculation, and tracks institutional research performance. Featuring a localized vector space similarity engine and a RAG (Retrieval-Augmented Generation) copilot, the platform provides research gap discovery and generates NAAC and NIRF-ready compliance reports.
 
