@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { loginSchema, type LoginSchemaType } from "../validation/auth.schemas";
 import { useAuth } from "../hooks/useAuth";
@@ -47,32 +44,42 @@ export function LoginForm() {
 
   return (
     <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      {/* Email Field */}
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          placeholder="name@university.edu"
-          className="h-11"
-          disabled={isLoading}
-          {...register("email")}
-        />
+        <label htmlFor="email" className="block text-xs lg:text-[13.5px] font-medium text-[#222222]">
+          Email Address
+        </label>
+        <div className="relative flex items-center">
+          <Mail className="absolute left-4 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="your.email@institution.edu"
+            disabled={isLoading}
+            className="w-full h-[52px] pl-11 pr-4 bg-white border border-[#D8D8D8] rounded-md text-xs lg:text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
+            {...register("email")}
+          />
+        </div>
         {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
+          <p className="text-[11px] text-destructive mt-0.5">{errors.email.message}</p>
         )}
       </div>
 
+      {/* Password Field */}
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
-        <div className="relative">
-          <Input
+        <label htmlFor="password" className="block text-xs lg:text-[13.5px] font-medium text-[#222222]">
+          Password
+        </label>
+        <div className="relative flex items-center">
+          <Lock className="absolute left-4 h-[18px] w-[18px] text-gray-400 pointer-events-none" />
+          <input
             id="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            placeholder="••••••••"
-            className="h-11 pr-11"
+            placeholder="•••••••••••••"
             disabled={isLoading}
+            className="w-full h-[52px] pl-11 pr-11 bg-white border border-[#D8D8D8] rounded-md text-xs lg:text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
             {...register("password")}
           />
           <button
@@ -81,41 +88,57 @@ export function LoginForm() {
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
             disabled={isLoading}
-            className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="absolute right-4 text-gray-400 hover:text-[#111111] transition-colors focus:outline-none"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
         {errors.password && (
-          <p className="text-xs text-destructive">{errors.password.message}</p>
+          <p className="text-[11px] text-destructive mt-0.5">{errors.password.message}</p>
         )}
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 pt-1">
-        <div className="flex min-w-0 items-center gap-2">
+      {/* Remember Me & Forgot Password (22-24px gap after password) */}
+      <div className="flex items-center justify-between pt-1 mt-5 mb-6">
+        <div className="flex items-center gap-2">
           <Checkbox
             id="remember"
             checked={remember ?? false}
             onCheckedChange={(checked) => setValue("remember", !!checked)}
             disabled={isLoading}
+            className="h-4 w-4 rounded border-[#D8D8D8] data-[state=checked]:bg-[#111111] data-[state=checked]:border-[#111111]"
           />
-          <Label htmlFor="remember" className="text-sm font-normal text-muted-foreground">
+          <label htmlFor="remember" className="text-xs lg:text-[13.5px] font-normal text-[#444444] cursor-pointer select-none">
             Remember me
-          </Label>
+          </label>
         </div>
         <a
           href="#"
           onClick={(e) => e.preventDefault()}
-          className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
+          className="text-xs lg:text-[13.5px] font-medium text-[#222222] hover:underline underline-offset-2 transition-colors"
         >
           Forgot password?
         </a>
       </div>
 
-      <Button type="submit" disabled={isLoading} className="h-11 w-full text-base mt-2">
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-        Sign In
-      </Button>
+      {/* Sign In Submit Button (24-28px gap after checkbox row) */}
+      <button
+        type="submit"
+        disabled={isLoading}
+        className="w-full h-[52px] bg-[#111111] hover:bg-[#2A2A2A] text-white font-semibold text-[15px] rounded-md transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none disabled:opacity-70 mt-6"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Signing in...</span>
+          </>
+        ) : (
+          "Sign In"
+        )}
+      </button>
     </form>
   );
+
+
 }
+

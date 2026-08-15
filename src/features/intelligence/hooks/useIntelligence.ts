@@ -17,7 +17,7 @@ export const useIntelligenceOverview = () => {
 export const useAnalyzeGaps = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (params: { domainQuery?: string; departmentId?: string }) =>
+    mutationFn: (params: { domainQuery?: string | undefined; departmentId?: string | undefined }) =>
       triggerGapAnalysisApi(params.domainQuery, params.departmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intelligenceOverview"] });
@@ -28,7 +28,7 @@ export const useAnalyzeGaps = () => {
 export const useAnalyzeCollaborations = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (departmentId?: string) => triggerCollaborationAnalysisApi(departmentId),
+    mutationFn: (departmentId?: string | void) => triggerCollaborationAnalysisApi(departmentId || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["intelligenceOverview"] });
     },
@@ -37,7 +37,7 @@ export const useAnalyzeCollaborations = () => {
 
 export const useRAGCopilot = () => {
   return useMutation({
-    mutationFn: (params: { query: string; departmentId?: string }) =>
+    mutationFn: (params: { query: string; departmentId?: string | undefined }) =>
       queryRAGCopilotApi(params.query, params.departmentId),
   });
 };

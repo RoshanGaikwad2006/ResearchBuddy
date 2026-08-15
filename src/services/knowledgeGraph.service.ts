@@ -61,13 +61,13 @@ export interface GraphAnalyticsResponse {
 }
 
 export const fetchKnowledgeGraph = async (params?: {
-  departmentId?: string;
-  facultyId?: string;
-  topicName?: string;
-  yearStart?: number;
-  yearEnd?: number;
-  depth?: number;
-  limitNodes?: number;
+  departmentId?: string | undefined;
+  facultyId?: string | undefined;
+  topicName?: string | undefined;
+  yearStart?: number | undefined;
+  yearEnd?: number | undefined;
+  depth?: number | undefined;
+  limitNodes?: number | undefined;
 }): Promise<KnowledgeGraphResponse> => {
   const response = await apiClient.get<KnowledgeGraphResponse>("/knowledge-graph", { params });
   return response.data;

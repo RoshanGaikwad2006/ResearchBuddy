@@ -235,7 +235,7 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
             </div>
 
             {/* Secondary Google Scholar Snippet Box if available */}
-            {(research.provenance as any)?.scholarSnippet && (research.provenance as any)?.scholarSnippet !== research.abstract && (
+            {research.provenance?.scholarSnippet && research.provenance?.scholarSnippet !== research.abstract && (
               <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">🎓 Google Scholar Search Snippet</span>
@@ -244,7 +244,7 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground italic leading-relaxed">
-                  "{(research.provenance as any)?.scholarSnippet}"
+                  "{research.provenance?.scholarSnippet}"
                 </p>
               </div>
             )}

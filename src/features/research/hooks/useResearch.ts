@@ -14,11 +14,11 @@ import {
 import { getStoredToken } from "@/services/apiClient";
 
 export const useMyResearchList = (params?: {
-  search?: string;
-  status?: ResearchStatusType;
-  publicationYear?: number;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  status?: ResearchStatusType | undefined;
+  publicationYear?: number | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }) => {
   const { user } = useAuth();
 
@@ -31,13 +31,13 @@ export const useMyResearchList = (params?: {
 };
 
 export const useResearchList = (params?: {
-  search?: string;
-  status?: ResearchStatusType;
-  departmentId?: string;
-  publicationYear?: number;
-  createdById?: string;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  status?: ResearchStatusType | undefined;
+  departmentId?: string | undefined;
+  publicationYear?: number | undefined;
+  createdById?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }) => {
   return useQuery({
     queryKey: ["research-list", params],

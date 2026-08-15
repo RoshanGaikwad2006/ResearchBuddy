@@ -8,7 +8,11 @@ export interface FacultyItem {
   departmentId: string;
   orcid?: string;
   scholarUrl?: string;
+  scholarAvatarUrl?: string;
   researchInterests: string[];
+  totalCitations?: number;
+  hIndex?: number;
+  i10Index?: number;
   createdAt: string;
   user: {
     id: string;
@@ -45,10 +49,10 @@ export interface CreateFacultyPayload {
 }
 
 export const fetchFacultyList = async (params?: {
-  search?: string;
-  departmentId?: string;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  departmentId?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }): Promise<FacultyListResponse> => {
   const response = await apiClient.get<FacultyListResponse>("/faculty", { params });
   return response.data;
@@ -125,13 +129,13 @@ export const fetchMyResearchIdentity = async (): Promise<ResearchIdentityRespons
 };
 
 export const updateMyResearchIdentity = async (data: {
-  departmentId?: string;
-  scholarInput?: string;
-  orcidInput?: string;
-  researcherId?: string;
-  otherResearcherId?: string;
-  institutionalAffiliation?: string;
-  researchInterests?: string[];
+  departmentId?: string | undefined;
+  scholarInput?: string | undefined;
+  orcidInput?: string | undefined;
+  researcherId?: string | undefined;
+  otherResearcherId?: string | undefined;
+  institutionalAffiliation?: string | undefined;
+  researchInterests?: string[] | undefined;
 }): Promise<ResearchIdentityResponse> => {
   const response = await apiClient.put<ResearchIdentityResponse>("/faculty/me/research-identity", data);
   return response.data;

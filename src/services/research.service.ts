@@ -46,6 +46,8 @@ export interface ResearchItem {
   department?: { id: string; code: string; name: string };
   authors: ResearchAuthorItem[];
   approvals?: any[];
+  abstractSource?: string;
+  provenance?: any;
 }
 
 export interface ResearchListResponse {
@@ -82,24 +84,24 @@ export interface CreateResearchPayload {
 }
 
 export const fetchMyResearches = async (params?: {
-  search?: string;
-  status?: ResearchStatusType;
-  publicationYear?: number;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  status?: ResearchStatusType | undefined;
+  publicationYear?: number | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }): Promise<ResearchListResponse> => {
   const response = await apiClient.get<ResearchListResponse>("/researches/my", { params });
   return response.data;
 };
 
 export const fetchResearchList = async (params?: {
-  search?: string;
-  status?: ResearchStatusType;
-  departmentId?: string;
-  publicationYear?: number;
-  createdById?: string;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  status?: ResearchStatusType | undefined;
+  departmentId?: string | undefined;
+  publicationYear?: number | undefined;
+  createdById?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }): Promise<ResearchListResponse> => {
   const response = await apiClient.get<ResearchListResponse>("/researches", { params });
   return response.data;

@@ -23,7 +23,12 @@ export const useMyFacultyProfile = () => {
   });
 };
 
-export const useFacultyList = (params?: { search?: string; departmentId?: string; page?: number; limit?: number }) => {
+export const useFacultyList = (params?: {
+  search?: string | undefined;
+  departmentId?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
+}) => {
   return useQuery({
     queryKey: ["faculty-list", params],
     queryFn: () => fetchFacultyList(params),

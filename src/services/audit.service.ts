@@ -139,7 +139,7 @@ export const runAuditApi = async (payload?: {
 
 export const resolveAuditIssueApi = async (
   id: string,
-  data: { action: "ACCEPT_SCHOLAR" | "ACCEPT_OPENALEX" | "ACCEPT_CROSSREF" | "ACCEPT_EXTERNAL" | "KEEP_KRIYA" | "MERGE" | "IGNORE"; reason?: string }
+  data: { action: "ACCEPT_SCHOLAR" | "ACCEPT_OPENALEX" | "ACCEPT_CROSSREF" | "ACCEPT_EXTERNAL" | "KEEP_KRIYA" | "MERGE" | "IGNORE"; reason?: string | undefined }
 ): Promise<{ message: string }> => {
   const response = await apiClient.post<{ message: string }>(`/audits/issues/${id}/resolve`, data);
   return response.data;

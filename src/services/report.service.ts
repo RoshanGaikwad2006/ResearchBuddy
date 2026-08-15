@@ -10,21 +10,21 @@ export interface ReportTemplate {
 
 export interface ReportFilterPayload {
   reportType: string;
-  reportTitle?: string;
-  departmentId?: string;
-  facultyId?: string;
-  yearStart?: number;
-  yearEnd?: number;
-  researchArea?: string;
-  status?: string;
-  journalOrConference?: "JOURNAL" | "CONFERENCE" | "ALL";
-  citationMin?: number;
-  search?: string;
-  columns?: string[];
-  grouping?: "department" | "year" | "status" | "researchArea" | "none";
-  sorting?: "year_desc" | "year_asc" | "citations_desc" | "citations_asc" | "title_asc";
-  page?: number;
-  limit?: number;
+  reportTitle?: string | undefined;
+  departmentId?: string | undefined;
+  facultyId?: string | undefined;
+  yearStart?: number | undefined;
+  yearEnd?: number | undefined;
+  researchArea?: string | undefined;
+  status?: string | undefined;
+  journalOrConference?: "JOURNAL" | "CONFERENCE" | "ALL" | undefined;
+  citationMin?: number | undefined;
+  search?: string | undefined;
+  columns?: string[] | undefined;
+  grouping?: "department" | "year" | "status" | "researchArea" | "none" | undefined;
+  sorting?: "year_desc" | "year_asc" | "citations_desc" | "citations_asc" | "title_asc" | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }
 
 export interface ReportPreviewResponse {

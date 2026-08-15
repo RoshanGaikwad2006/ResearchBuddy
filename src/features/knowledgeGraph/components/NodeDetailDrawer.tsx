@@ -15,7 +15,7 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({
 }) => {
   if (!node) return null;
 
-  const m = node.metadata || {};
+  const m = (node.metadata as any) || {};
 
   const handleAskCopilot = () => {
     let query = "";

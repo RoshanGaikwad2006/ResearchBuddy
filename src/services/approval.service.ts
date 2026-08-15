@@ -34,7 +34,7 @@ export const fetchPendingApprovalQueue = async (params?: { page?: number; limit?
 
 export const submitApprovalDecisionApi = async (
   researchId: string,
-  payload: { status: ApprovalStatusDecision; comments?: string }
+  payload: { status: ApprovalStatusDecision; comments?: string | undefined }
 ): Promise<{ message: string; data: any }> => {
   const response = await apiClient.post<{ message: string; data: any }>(`/approvals/${researchId}`, payload);
   return response.data;

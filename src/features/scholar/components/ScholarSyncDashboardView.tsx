@@ -157,7 +157,7 @@ export const ScholarSyncDashboardView: React.FC = () => {
                     <TableCell className="text-right font-medium text-blue-600">{run.publicationsUpdated}</TableCell>
                     <TableCell className="text-right">
                       <Button
-                        size="xs"
+                        size="sm"
                         variant="ghost"
                         onClick={() => setSelectedRun(run)}
                         className="text-xs font-semibold text-teal-600 hover:text-teal-700"

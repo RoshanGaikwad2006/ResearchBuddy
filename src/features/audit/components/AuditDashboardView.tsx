@@ -93,7 +93,7 @@ export function AuditDashboardView() {
     autoFixMutation.mutate();
   };
 
-  const handleResolveAction = (action: "ACCEPT_EXTERNAL" | "KEEP_KRIYA" | "IGNORE") => {
+  const handleResolveAction = (action: "ACCEPT_SCHOLAR" | "ACCEPT_OPENALEX" | "ACCEPT_CROSSREF" | "ACCEPT_EXTERNAL" | "KEEP_KRIYA" | "MERGE" | "IGNORE") => {
     if (!selectedIssueId) return;
     resolveMutation.mutate(
       { id: selectedIssueId, action },

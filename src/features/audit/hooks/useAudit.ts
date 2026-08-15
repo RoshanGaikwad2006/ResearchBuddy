@@ -76,7 +76,7 @@ export const useRunAudit = () => {
 export const useResolveAuditIssue = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action, reason }: { id: string; action: any; reason?: string }) =>
+    mutationFn: ({ id, action, reason }: { id: string; action: any; reason?: string | undefined }) =>
       resolveAuditIssueApi(id, { action, reason }),
     onSuccess: () => {
       toast.success("Audit Issue Resolved", { description: "Issue action successfully recorded." });

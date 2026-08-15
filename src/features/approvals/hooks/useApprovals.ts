@@ -36,7 +36,7 @@ export const useSubmitApprovalDecision = () => {
     }: {
       researchId: string;
       status: ApprovalStatusDecision;
-      comments?: string;
+      comments?: string | undefined;
     }) => submitApprovalDecisionApi(researchId, { status, comments }),
     onSuccess: (res, variables) => {
       toast.success("Decision Recorded", { description: res.message });

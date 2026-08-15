@@ -7,13 +7,13 @@ import {
 } from "../../../services/knowledgeGraph.service";
 
 export const useKnowledgeGraph = (params?: {
-  departmentId?: string;
-  facultyId?: string;
-  topicName?: string;
-  yearStart?: number;
-  yearEnd?: number;
-  depth?: number;
-  limitNodes?: number;
+  departmentId?: string | undefined;
+  facultyId?: string | undefined;
+  topicName?: string | undefined;
+  yearStart?: number | undefined;
+  yearEnd?: number | undefined;
+  depth?: number | undefined;
+  limitNodes?: number | undefined;
 }) => {
   return useQuery({
     queryKey: ["knowledgeGraph", params],

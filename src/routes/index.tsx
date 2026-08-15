@@ -6,17 +6,17 @@ import { useAuth } from "@/features/auth/hooks/useAuth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sign In | AI-Powered Institutional Research Platform" },
+      { title: "Sign In | KRIYA - AI-Powered Institutional Research Platform" },
       {
         name: "description",
         content:
-          "Sign in to the AI-Powered Institutional Research Platform to manage publications, track research contributions and generate insights.",
+          "Sign in to KRIYA, the AI-Powered Institutional Research Platform, to manage publications, track research contributions and generate insights.",
       },
-      { property: "og:title", content: "Sign In | AI-Powered Institutional Research Platform" },
+      { property: "og:title", content: "Sign In | KRIYA - AI-Powered Institutional Research Platform" },
       {
         property: "og:description",
         content:
-          "Secure access for faculty, students and administrators to the institutional research workspace.",
+          "Secure access for faculty, students and administrators to the KRIYA institutional research workspace.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

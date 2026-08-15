@@ -7,7 +7,6 @@ import {
   Square,
   Save,
   History,
-  Sparkles,
   BookOpen,
   Building2,
   Search,
@@ -205,8 +204,8 @@ export function ReportBuilderView() {
     if (index <= 0) return;
     const newCols = [...selectedColumns];
     const temp = newCols[index - 1];
-    newCols[index - 1] = newCols[index];
-    newCols[index] = temp;
+    newCols[index - 1] = newCols[index]!;
+    newCols[index] = temp!;
     setSelectedColumns(newCols);
   };
 
@@ -214,8 +213,8 @@ export function ReportBuilderView() {
     if (index >= selectedColumns.length - 1) return;
     const newCols = [...selectedColumns];
     const temp = newCols[index + 1];
-    newCols[index + 1] = newCols[index];
-    newCols[index] = temp;
+    newCols[index + 1] = newCols[index]!;
+    newCols[index] = temp!;
     setSelectedColumns(newCols);
   };
 
@@ -224,8 +223,7 @@ export function ReportBuilderView() {
       {/* HEADER BAR */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-6 shadow-soft">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Sparkles className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Institutional Research Report & Export Engine
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -332,7 +330,7 @@ export function ReportBuilderView() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL">All Faculty Members</SelectItem>
-                      {facultyMembers.map((f) => (
+                      {facultyMembers.map((f: any) => (
                         <SelectItem key={f.id} value={f.id}>
                           {f.user?.name} ({f.employeeId})
                         </SelectItem>

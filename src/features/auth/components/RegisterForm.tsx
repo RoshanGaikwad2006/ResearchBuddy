@@ -4,9 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -67,46 +64,46 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
   };
 
   return (
-    <form className="mt-4 space-y-3.5" onSubmit={handleSubmit(onSubmit)}>
+    <form className="mt-5 space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <div className="space-y-1.5">
-        <Label htmlFor="reg-name">Full Name</Label>
-        <Input
+        <label htmlFor="reg-name" className="block text-sm font-medium text-[#222222]">Full Name</label>
+        <input
           id="reg-name"
           type="text"
           placeholder="Dr. Ananya Rao"
-          className="h-11"
           disabled={isLoading}
+          className="w-full h-[50px] px-4 bg-white border border-[#D8D8D8] rounded-md text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
           {...register("name")}
         />
         {errors.name && (
-          <p className="text-xs text-destructive">{errors.name.message}</p>
+          <p className="text-xs text-destructive mt-1">{errors.name.message}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="reg-email">Email</Label>
-        <Input
+        <label htmlFor="reg-email" className="block text-sm font-medium text-[#222222]">Email Address</label>
+        <input
           id="reg-email"
           type="email"
           autoComplete="email"
-          placeholder="name@university.edu"
-          className="h-11"
+          placeholder="your.email@institution.edu"
           disabled={isLoading}
+          className="w-full h-[50px] px-4 bg-white border border-[#D8D8D8] rounded-md text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
           {...register("email")}
         />
         {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
+          <p className="text-xs text-destructive mt-1">{errors.email.message}</p>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="reg-role">Role</Label>
+        <label htmlFor="reg-role" className="block text-sm font-medium text-[#222222]">Role</label>
         <Select
           value={selectedRole}
           onValueChange={(val) => setValue("role", val as UserRole)}
           disabled={isLoading}
         >
-          <SelectTrigger id="reg-role" className="h-11 w-full">
+          <SelectTrigger id="reg-role" className="h-[50px] w-full border-[#D8D8D8] rounded-md text-sm text-[#111111]">
             <SelectValue placeholder="Select your role" />
           </SelectTrigger>
           <SelectContent>
@@ -117,17 +114,17 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
           </SelectContent>
         </Select>
         {errors.role && (
-          <p className="text-xs text-destructive">{errors.role.message}</p>
+          <p className="text-xs text-destructive mt-1">{errors.role.message}</p>
         )}
       </div>
 
       {/* Canonical Department Selection for Faculty */}
       {selectedRole === "FACULTY" && (
-        <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-3">
+        <div className="p-3.5 rounded-md bg-[#F8F8F8] border border-[#E0E0E0] space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="reg-dept">Department</Label>
-            <Select defaultItem="ce" disabled={isLoading}>
-              <SelectTrigger id="reg-dept" className="h-10 w-full bg-card">
+            <label htmlFor="reg-dept" className="block text-xs font-semibold text-[#333333]">Department</label>
+            <Select defaultValue="ce" disabled={isLoading}>
+              <SelectTrigger id="reg-dept" className="h-9 w-full bg-white border-[#D8D8D8]">
                 <SelectValue placeholder="Select Canonical Department" />
               </SelectTrigger>
               <SelectContent>
@@ -139,19 +136,19 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="reg-scholar" className="text-xs">Google Scholar Profile URL (Optional)</Label>
-            <Input id="reg-scholar" placeholder="https://scholar.google.com/citations?user=Y8O6WQcAAAAJ" className="h-9 text-xs" />
+          <div className="space-y-1">
+            <label htmlFor="reg-scholar" className="block text-xs font-medium text-[#555555]">Google Scholar Profile URL (Optional)</label>
+            <input id="reg-scholar" placeholder="https://scholar.google.com/citations?user=..." className="w-full h-9 px-3 bg-white border border-[#D8D8D8] rounded text-xs text-[#111111]" />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="reg-orcid" className="text-xs">ORCID iD (Optional)</Label>
-              <Input id="reg-orcid" placeholder="0000-0002-1825-0097" className="h-9 text-xs" />
+            <div className="space-y-1">
+              <label htmlFor="reg-orcid" className="block text-xs font-medium text-[#555555]">ORCID iD (Optional)</label>
+              <input id="reg-orcid" placeholder="0000-0002-1825-0097" className="w-full h-9 px-3 bg-white border border-[#D8D8D8] rounded text-xs text-[#111111]" />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="reg-researcherid" className="text-xs">ResearcherID (Optional)</Label>
-              <Input id="reg-researcherid" placeholder="A-1234-2025" className="h-9 text-xs" />
+            <div className="space-y-1">
+              <label htmlFor="reg-researcherid" className="block text-xs font-medium text-[#555555]">ResearcherID (Optional)</label>
+              <input id="reg-researcherid" placeholder="A-1234-2025" className="w-full h-9 px-3 bg-white border border-[#D8D8D8] rounded text-xs text-[#111111]" />
             </div>
           </div>
         </div>
@@ -159,58 +156,69 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="reg-password">Password</Label>
-          <div className="relative">
-            <Input
+          <label htmlFor="reg-password" className="block text-sm font-medium text-[#222222]">Password</label>
+          <div className="relative flex items-center">
+            <input
               id="reg-password"
               type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
-              className="h-11 pr-10"
+              placeholder="•••••••••••••"
               disabled={isLoading}
+              className="w-full h-[50px] px-4 pr-10 bg-white border border-[#D8D8D8] rounded-md text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
               {...register("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute inset-y-0 right-0 grid w-10 place-items-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground"
+              className="absolute right-3 text-gray-400 hover:text-[#111111]"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           {errors.password && (
-            <p className="text-xs text-destructive">{errors.password.message}</p>
+            <p className="text-xs text-destructive mt-1">{errors.password.message}</p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="reg-confirm-password">Confirm Password</Label>
-          <div className="relative">
-            <Input
+          <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-[#222222]">Confirm Password</label>
+          <div className="relative flex items-center">
+            <input
               id="reg-confirm-password"
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="••••••••"
-              className="h-11 pr-10"
+              placeholder="•••••••••••••"
               disabled={isLoading}
+              className="w-full h-[50px] px-4 pr-10 bg-white border border-[#D8D8D8] rounded-md text-sm text-[#111111] placeholder:text-gray-400 focus:outline-none focus:border-[#111111] focus:ring-0 transition-colors disabled:opacity-60"
               {...register("confirmPassword")}
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword((v) => !v)}
-              className="absolute inset-y-0 right-0 grid w-10 place-items-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground"
+              className="absolute right-3 text-gray-400 hover:text-[#111111]"
             >
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           {errors.confirmPassword && (
-            <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+            <p className="text-xs text-destructive mt-1">{errors.confirmPassword.message}</p>
           )}
         </div>
       </div>
 
-      <Button type="submit" disabled={isLoading} className="h-11 w-full text-base mt-3">
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-        Create Account
-      </Button>
+      <button
+        type="submit"
+        disabled={isLoading}
+        className="w-full h-[52px] bg-[#111111] hover:bg-[#2A2A2A] text-white font-semibold text-[15px] rounded-md transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-none disabled:opacity-70 mt-6"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Registering...</span>
+          </>
+        ) : (
+          "Create Account"
+        )}
+      </button>
     </form>
   );
 }
+

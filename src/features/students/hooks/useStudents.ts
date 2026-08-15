@@ -24,11 +24,11 @@ export const useMyStudentProfile = () => {
 };
 
 export const useStudentList = (params?: {
-  search?: string;
-  departmentId?: string;
-  guideFacultyId?: string;
-  page?: number;
-  limit?: number;
+  search?: string | undefined;
+  departmentId?: string | undefined;
+  guideFacultyId?: string | undefined;
+  page?: number | undefined;
+  limit?: number | undefined;
 }) => {
   return useQuery({
     queryKey: ["student-list", params],
