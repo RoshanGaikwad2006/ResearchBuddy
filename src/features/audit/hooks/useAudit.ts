@@ -48,8 +48,8 @@ export const useAuditIssueDetail = (id?: string) => {
   return useQuery({
     queryKey: ["audit-issue-detail", id],
     queryFn: () => fetchAuditIssueById(id!),
-    enabled: !!id && !!getStoredToken(),
-    retry: 1,
+    enabled: !!id && id !== "undefined" && !!getStoredToken(),
+    retry: false,
   });
 };
 

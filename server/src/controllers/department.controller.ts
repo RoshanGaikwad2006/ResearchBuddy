@@ -60,6 +60,10 @@ export const deleteDepartment = async (req: AuthenticatedRequest, res: Response)
 export const getDepartmentById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = getParamId(req.params.id);
+    if (!id || id === "undefined" || id === "null") {
+      res.status(404).json({ message: "Department ID not provided" });
+      return;
+    }
     const department = await DepartmentService.getById(id);
     res.status(200).json({ department });
   } catch (error: any) {
