@@ -6,7 +6,16 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import path from "path";
 
 export default defineConfig({
-  plugins: [tailwindcss(), tanstackStart(), react(), tsconfigPaths()],
+  plugins: [
+    tailwindcss(),
+    tanstackStart({
+      nitro: {
+        preset: "vercel",
+      },
+    }),
+    react(),
+    tsconfigPaths(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
