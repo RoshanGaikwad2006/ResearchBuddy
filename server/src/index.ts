@@ -45,7 +45,25 @@ app.use(
 
 app.use(express.json());
 
-// Health Check
+// Root & Health Checks for Render Deployment
+app.get("/", (_req, res) => {
+  res.status(200).send(`
+    <!Text>
+    <html>
+      <head><title>KRIYA Backend API</title></head>
+      <body style="font-family: sans-serif; padding: 40px; background: #0f172a; color: #f8fafc;">
+        <h2>🚀 KRIYA Research Intelligence Platform Backend API</h2>
+        <p>Status: <strong style="color: #22c55e;">ONLINE & OPERATIONAL</strong></p>
+        <p>Health Endpoint: <a href="/api/health" style="color: #38bdf8;">/api/health</a></p>
+      </body>
+    </html>
+  `);
+});
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ success: true, status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ success: true, status: "ok", timestamp: new Date().toISOString() });
 });
