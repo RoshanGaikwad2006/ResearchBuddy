@@ -652,17 +652,16 @@ Build optimized Static Assets:
 ```bash
 npm run build
 ```
-The output directory `dist/` contains production-ready bundles prepared for hosting on CDN platforms (e.g. Vercel, Netlify).
+The output directory `dist/client` contains production-ready bundles prepared for hosting on CDN platforms (e.g. Vercel).
 
-### 2. Node.js Production Server
-Transpile backend TypeScript:
+### 2. Node.js Production Web Service (Render)
+Transpile backend TypeScript and start service:
 ```bash
 cd server
-npm run build
-# Start production server
+npm run render-build
 npm start
 ```
-Configure environment variables on hosting providers (e.g. Render, AWS EC2, Heroku) matching the configurations in the `.env` settings.
+Production Backend Endpoint: [https://kriya-research-repo.onrender.com](https://kriya-research-repo.onrender.com)
 
 ---
 
@@ -697,10 +696,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## Author
+## Contact & Support
 
-* **Roshan Gaikwad** — *AI Integration Specialist* — [roshangaikwad2006@gmail.com](mailto:roshangaikwad2006@gmail.com)
-* **Kalpesh Bire** — *Full Stack Engineer & System Architect* — [kalpeshbire2006@gmail.com](mailto:kalpeshbire2006@gmail.com)
+* **KRIYA Engineering & Research Platform** — K. K. Wagh Education Society Research Cell
 
 
 ---
