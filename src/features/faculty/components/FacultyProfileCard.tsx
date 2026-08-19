@@ -566,11 +566,13 @@ export function FacultyProfileCard() {
           </div>
           
           {(() => {
-            const gsVal = identity.metrics?.citationSources.googleScholar || 7;
-            const oaVal = identity.metrics?.citationSources.openAlex || 7;
-            const crVal = identity.metrics?.citationSources.crossref || 6;
-            const wosVal = parseInt(identity.metrics?.citationSources.webOfScience || '6') || 6;
-            const maxVal = Math.max(gsVal, oaVal, crVal, wosVal, 1);
+            const gsVal = identity.metrics?.citationSources.googleScholar || 0;
+            const oaVal = identity.metrics?.citationSources.openAlex || 0;
+            const crVal = identity.metrics?.citationSources.crossref || 0;
+            const scopusRaw = identity.metrics?.citationSources.scopus;
+            const scopusVal = scopusRaw && scopusRaw !== "Not Connected" ? parseInt(scopusRaw, 10) || 0 : 0;
+            const wosVal = parseInt(identity.metrics?.citationSources.webOfScience || '0', 10) || 0;
+            const maxVal = Math.max(gsVal, oaVal, crVal, scopusVal, wosVal, 1);
 
             return (
               <div className="space-y-4 text-xs pt-1">
@@ -582,6 +584,23 @@ export function FacultyProfileCard() {
                   </div>
                   <div className="w-full bg-[#F1F5F9] h-2.5 rounded-full overflow-hidden flex">
                     <div className="bg-[#102A43] h-full rounded-l-full" style={{ width: `${(gsVal / maxVal) * 100}%` }}></div>
+                    <div className="bg-[#B8891F] h-full w-1 rounded-r-full shrink-0"></div>
+                  </div>
+                </div>
+
+                {/* Scopus Citation Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center font-medium">
+                    <span className="text-[#102A43] font-semibold flex items-center gap-1">
+                      <span className="px-1 py-0.2 rounded bg-[#FFF4E5] text-[#D97706] font-bold text-[10px]">Scopus</span>
+                      Index
+                    </span>
+                    <span className="text-[#D97706] font-bold">
+                      {scopusRaw === "Not Connected" || !scopusRaw ? "Not Connected" : scopusVal}
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#F1F5F9] h-2.5 rounded-full overflow-hidden flex">
+                    <div className="bg-[#D97706] h-full rounded-l-full" style={{ width: `${(scopusVal / maxVal) * 100}%` }}></div>
                     <div className="bg-[#B8891F] h-full w-1 rounded-r-full shrink-0"></div>
                   </div>
                 </div>
