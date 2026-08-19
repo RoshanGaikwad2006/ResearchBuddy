@@ -1,5 +1,6 @@
 import { prisma } from "../config/db.js";
 import { ScholarSyncAgent } from "../integrations/googleScholar/scholarSyncAgent.service.js";
+import { ScopusSyncService } from "../integrations/scopus/scopusSync.service.js";
 
 export interface IdentityStatus {
   scholar: "CONNECTED" | "NOT_PROVIDED" | "INVALID" | "SYNCING" | "SYNCED" | "ERROR";
@@ -257,7 +258,9 @@ export class FacultyResearchIdentityService {
     // Citation Sources Analysis (100% Free Open Science Registries)
     const openAlexTotal = Math.round(faculty.totalCitations * 0.95);
     const crossrefTotal = Math.round(faculty.totalCitations * 0.90);
-    const scopusCitations = faculty.scopusAuthorId ? Math.round(faculty.totalCitations * 0.88) : 0;
+    const scopusCitations = faculty.scopusAuthorId
+      ? (faculty.scopusCitations > 0 ? faculty.scopusCitations : Math.round(faculty.totalCitations * 0.88))
+      : 0;
     const freeWosCitations = (faculty.researcherId || faculty.orcid) ? Math.round(faculty.totalCitations * 0.85) : 0;
     const isWosConnected = !!(faculty.researcherId || faculty.orcid);
 
@@ -366,6 +369,15 @@ export class FacultyResearchIdentityService {
       where: { id: facultyId },
       data: updateData,
     });
+
+    // If Scopus Author ID is updated or set, trigger Scopus profile sync to fetch real citations
+    if (updateData.scopusAuthorId) {
+      try {
+        await ScopusSyncService.syncFacultyScopusProfile(facultyId);
+      } catch (err: any) {
+        console.error(`Scopus sync warning for faculty ${facultyId}: ${err.message}`);
+      }
+    }
 
     // Asynchronously trigger Scholar Sync if Scholar ID updated and never synced
     if (updateData.scholarAuthorId && currentFaculty.scholarSyncStatus === "NEVER_SYNCED") {

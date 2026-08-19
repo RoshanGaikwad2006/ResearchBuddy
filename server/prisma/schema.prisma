@@ -114,6 +114,8 @@ model Faculty {
   totalCitations    Int      @default(0)
   hIndex            Int      @default(0)
   i10Index          Int      @default(0)
+  scopusCitations   Int      @default(0)
+  scopusHIndex      Int      @default(0)
   publicationCount  Int      @default(0)
   researchInterests String[] // Tags / areas of expertise
   createdAt         DateTime @default(now())
