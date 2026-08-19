@@ -350,7 +350,7 @@ export function FacultyProfileCard() {
             </span>
             <div>
               <p className="text-2xl font-bold text-[#102A43] leading-none">
-                {identity.metrics?.publicationCount || 15}
+                {identity.metrics?.publicationCount ?? 0}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
                 Publications
@@ -364,7 +364,11 @@ export function FacultyProfileCard() {
             </span>
             <div>
               <p className="text-2xl font-bold text-[#102A43] leading-none">
-                {identity.metrics?.totalCitations || 7}
+                {(() => {
+                  const scopusCites = parseInt(identity.metrics?.citationSources?.scopus || '0', 10) || 0;
+                  const gsCites = identity.metrics?.totalCitations ?? 0;
+                  return Math.max(gsCites, scopusCites);
+                })()}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
                 Citations
@@ -378,7 +382,7 @@ export function FacultyProfileCard() {
             </span>
             <div>
               <p className="text-2xl font-bold text-[#102A43] leading-none font-sans">
-                {identity.metrics?.hIndex || "—"}
+                {identity.metrics?.hIndex ?? 0}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
                 h-index
@@ -392,7 +396,14 @@ export function FacultyProfileCard() {
             </span>
             <div>
               <p className="text-2xl font-bold text-[#102A43] leading-none">
-                {identity.status ? Object.values(identity.status).filter(v => v !== "NOT_PROVIDED" && v !== "NOT_CONNECTED").length : 3}
+                {(() => {
+                  let count = 0;
+                  if (identity.scholarAuthorId) count++;
+                  if (identity.orcid) count++;
+                  if (identity.scopusAuthorId) count++;
+                  if (identity.researcherId) count++;
+                  return count;
+                })()}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
                 Connected Profiles
