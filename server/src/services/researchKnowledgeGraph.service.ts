@@ -171,6 +171,8 @@ export class ResearchKnowledgeGraphService {
           totalCitations: f.totalCitations,
           orcid: f.orcid,
           scholarAuthorId: f.scholarAuthorId,
+          scopusAuthorId: f.scopusAuthorId,
+          scopusUrl: f.scopusUrl,
         },
       });
 

@@ -181,6 +181,21 @@ export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: Publi
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
+
+                {targetFaculty.scopusAuthorId ? (
+                  <a
+                    href={targetFaculty.scopusUrl || `https://www.scopus.com/authid/detail.uri?authorId=${targetFaculty.scopusAuthorId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-700 border border-amber-500/30 hover:bg-amber-500/20 transition-all shadow-xs"
+                  >
+                    <span className="grid h-4 w-4 place-items-center rounded-full bg-amber-600 text-white font-sans text-[9px] font-bold">
+                      Sc
+                    </span>
+                    <span>Scopus: {targetFaculty.scopusAuthorId}</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
               </div>
             </div>
 

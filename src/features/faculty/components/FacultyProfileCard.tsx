@@ -40,6 +40,7 @@ export function FacultyProfileCard() {
   const [isEditing, setIsEditing] = useState(false);
   const [scholarInput, setScholarInput] = useState("");
   const [orcidInput, setOrcidInput] = useState("");
+  const [scopusInput, setScopusInput] = useState("");
   const [researcherId, setResearcherId] = useState("");
   const [interestsText, setInterestsText] = useState("");
   const [affiliationInput, setAffiliationInput] = useState("");
@@ -72,6 +73,7 @@ export function FacultyProfileCard() {
     if (identity) {
       setScholarInput(identity.scholarProfileUrl || identity.scholarAuthorId || "");
       setOrcidInput(identity.orcid || "");
+      setScopusInput(identity.scopusUrl || identity.scopusAuthorId || "");
       setResearcherId(identity.researcherId || "");
       setInterestsText((identity.researchInterests || []).join(", "));
       setAffiliationInput(identity.institutionalAffiliation || "");
@@ -90,6 +92,7 @@ export function FacultyProfileCard() {
       const updated = await updateMyResearchIdentity({
         scholarInput: scholarInput || undefined,
         orcidInput: orcidInput || undefined,
+        scopusInput: scopusInput || undefined,
         researcherId: researcherId || undefined,
         institutionalAffiliation: affiliationInput || undefined,
         researchInterests,
@@ -313,6 +316,10 @@ export function FacultyProfileCard() {
                 <Input value={orcidInput} onChange={(e) => setOrcidInput(e.target.value)} placeholder="0000-0002-1825-0097" className="mt-1 text-xs" />
               </div>
               <div>
+                <Label className="text-xs text-[#102A43] font-semibold">Scopus Author ID or Profile URL</Label>
+                <Input value={scopusInput} onChange={(e) => setScopusInput(e.target.value)} placeholder="57204859300 or https://www.scopus.com/authid/detail.uri?authorId=57204859300" className="mt-1 text-xs" />
+              </div>
+              <div>
                 <Label className="text-xs text-[#102A43] font-semibold">ResearcherID / Clarivate ID</Label>
                 <Input value={researcherId} onChange={(e) => setResearcherId(e.target.value)} placeholder="A-1234-2025" className="mt-1 text-xs" />
               </div>
@@ -449,6 +456,37 @@ export function FacultyProfileCard() {
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold tracking-wide uppercase ${identity.orcid ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-slate-100 text-slate-500"}`}>
                   {identity.orcid ? "Provided" : "Not Connected"}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#64748B]" />
+              </div>
+            </div>
+
+            {/* Scopus Author ID */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer" onClick={handleStartEdit}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-[#FFF4E5] border border-[#FDBA74]/50 flex items-center justify-center shrink-0">
+                  <span className="font-bold text-[11px] text-[#D97706]">Sc</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs text-[#102A43]">Scopus Author ID</p>
+                  <p className="text-[10px] text-[#64748B] truncate mt-0.5">{identity.scopusAuthorId || "57204859300"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {identity.scopusAuthorId && identity.scopusUrl ? (
+                  <a
+                    href={identity.scopusUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded text-[#D97706] hover:bg-[#FFF4E5]"
+                    title="View Scopus Profile"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold tracking-wide uppercase ${identity.scopusAuthorId ? "bg-[#FFF4E5] text-[#D97706]" : "bg-slate-100 text-slate-500"}`}>
+                  {identity.scopusAuthorId ? "Connected" : "Not Connected"}
                 </span>
                 <ChevronRight className="h-4 w-4 text-[#64748B]" />
               </div>

@@ -7,6 +7,8 @@ export const createFacultySchema = z.object({
   departmentId: z.string().uuid("Invalid department ID"),
   orcid: z.string().optional().nullable().or(z.literal("")),
   scholarUrl: z.string().optional().nullable().or(z.literal("")),
+  scopusAuthorId: z.string().optional().nullable().or(z.literal("")),
+  scopusUrl: z.string().optional().nullable().or(z.literal("")),
   researchInterests: z.array(z.string()).optional().default([]),
 });
 

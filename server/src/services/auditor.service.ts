@@ -265,7 +265,7 @@ export class AuditorService {
     const connectedFaculties = await prisma.faculty.count({
       where: {
         ...(scopeType === "DEPARTMENT" ? { departmentId: targetId } : scopeType === "FACULTY" ? { id: targetId } : {}),
-        OR: [{ NOT: { scholarAuthorId: null } }, { NOT: { orcid: null } }],
+        OR: [{ NOT: { scholarAuthorId: null } }, { NOT: { orcid: null } }, { NOT: { scopusAuthorId: null } }],
       },
     });
     const identityMapping = totalFaculties > 0 ? Math.round((connectedFaculties / totalFaculties) * 100) : 100;

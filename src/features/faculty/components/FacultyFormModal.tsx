@@ -50,6 +50,7 @@ export function FacultyFormModal({ open, onOpenChange, facultyToEdit }: FacultyF
       departmentId: "",
       orcid: "",
       scholarUrl: "",
+      scopusAuthorId: "",
     },
   });
 
@@ -64,6 +65,7 @@ export function FacultyFormModal({ open, onOpenChange, facultyToEdit }: FacultyF
       setValue("departmentId", facultyToEdit.departmentId);
       setValue("orcid", facultyToEdit.orcid || "");
       setValue("scholarUrl", facultyToEdit.scholarUrl || "");
+      setValue("scopusAuthorId", facultyToEdit.scopusAuthorId || "");
       setInterestsText((facultyToEdit.researchInterests || []).join(", "));
     } else {
       reset();
@@ -86,6 +88,7 @@ export function FacultyFormModal({ open, onOpenChange, facultyToEdit }: FacultyF
           departmentId: values.departmentId,
           orcid: values.orcid || undefined,
           scholarUrl: values.scholarUrl || undefined,
+          scopusAuthorId: values.scopusAuthorId || undefined,
           researchInterests,
         },
       });
@@ -97,6 +100,7 @@ export function FacultyFormModal({ open, onOpenChange, facultyToEdit }: FacultyF
         departmentId: values.departmentId,
         orcid: values.orcid || undefined,
         scholarUrl: values.scholarUrl || undefined,
+        scopusAuthorId: values.scopusAuthorId || undefined,
         researchInterests,
       });
     }
@@ -195,6 +199,16 @@ export function FacultyFormModal({ open, onOpenChange, facultyToEdit }: FacultyF
               placeholder="0000-0002-1825-0097"
               disabled={isLoading}
               {...register("orcid")}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="scopusAuthorId">Scopus Author ID (Optional)</Label>
+            <Input
+              id="scopusAuthorId"
+              placeholder="57204859300"
+              disabled={isLoading}
+              {...register("scopusAuthorId")}
             />
           </div>
 

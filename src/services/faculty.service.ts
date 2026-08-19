@@ -9,6 +9,8 @@ export interface FacultyItem {
   orcid?: string;
   scholarUrl?: string;
   scholarAvatarUrl?: string;
+  scopusAuthorId?: string;
+  scopusUrl?: string;
   researchInterests: string[];
   totalCitations?: number;
   hIndex?: number;
@@ -94,6 +96,8 @@ export interface ResearchIdentityResponse {
   scholarAuthorId?: string;
   scholarAvatarUrl?: string;
   orcid?: string;
+  scopusAuthorId?: string;
+  scopusUrl?: string;
   researcherId?: string;
   otherResearcherId?: string;
   institutionalAffiliation: string;
@@ -103,6 +107,7 @@ export interface ResearchIdentityResponse {
   status: {
     scholar: string;
     orcid: string;
+    scopus: string;
     researcherId: string;
     wos: string;
   };
@@ -117,6 +122,7 @@ export interface ResearchIdentityResponse {
       googleScholar: number;
       openAlex: number;
       crossref: number;
+      scopus: string;
       webOfScience: string;
     };
   };
@@ -132,6 +138,7 @@ export const updateMyResearchIdentity = async (data: {
   departmentId?: string | undefined;
   scholarInput?: string | undefined;
   orcidInput?: string | undefined;
+  scopusInput?: string | undefined;
   researcherId?: string | undefined;
   otherResearcherId?: string | undefined;
   institutionalAffiliation?: string | undefined;

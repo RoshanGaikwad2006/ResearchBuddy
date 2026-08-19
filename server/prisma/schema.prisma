@@ -101,6 +101,8 @@ model Faculty {
   scholarUrl        String?
   scholarAuthorId   String?
   scholarAvatarUrl  String?
+  scopusAuthorId    String?  @unique
+  scopusUrl         String?
   researcherId      String?  @unique
   otherResearcherId String?
   scholarSyncStatus String?  @default("NEVER_SYNCED")
