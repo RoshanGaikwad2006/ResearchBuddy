@@ -1,7 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
-import path from "path";
+import path, { dirname } from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export interface VaultFileIndex {
   localFileId: string;
@@ -377,6 +381,10 @@ function registerIpcHandlers() {
 }
 
 function createWindow() {
+  const preloadJs = path.join(__dirname, "preload.js");
+  const preloadTs = path.join(__dirname, "preload.ts");
+  const preloadPath = fs.existsSync(preloadJs) ? preloadJs : preloadTs;
+
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 900,
@@ -387,16 +395,17 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
-      preload: path.join(__dirname, "preload.js"),
+      preload: preloadPath,
     },
   });
 
   const devUrl = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
-  if (process.env.NODE_ENV === "development") {
-    mainWindow.loadURL(devUrl);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/client/index.html"));
-  }
+  mainWindow.loadURL(devUrl).catch(() => {
+    const fallbackFile = path.join(__dirname, "../dist/client/index.html");
+    if (fs.existsSync(fallbackFile)) {
+      mainWindow?.loadFile(fallbackFile);
+    }
+  });
 }
 
 app.whenReady().then(() => {
