@@ -193,7 +193,17 @@ export class ScholarSyncAgent {
             if (fetchedMeta.keywords && fetchedMeta.keywords.length > 0) openAlexKeywords = fetchedMeta.keywords;
             if (fetchedMeta.journal) venueJournal = fetchedMeta.journal;
             if (fetchedMeta.conference) venueConference = fetchedMeta.conference;
-            if (fetchedMeta.doi) resolvedDoi = ScholarNormalizationService.normalizeDoi(fetchedMeta.doi);
+            
+            if (fetchedMeta.doi) {
+              const candidateDoi = ScholarNormalizationService.normalizeDoi(fetchedMeta.doi);
+              if (candidateDoi) {
+                const similarity = ScholarNormalizationService.titleSimilarity(pub.title, fetchedMeta.title || "");
+                if (similarity >= 0.85) {
+                  resolvedDoi = candidateDoi;
+                }
+              }
+            }
+
             if (fetchedMeta.authors && fetchedMeta.authors.length > 0 && matchesFaculty) {
               openAlexAuthors = fetchedMeta.authors;
             }

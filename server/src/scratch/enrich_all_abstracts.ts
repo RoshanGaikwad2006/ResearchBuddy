@@ -2,6 +2,7 @@ import { prisma } from "../config/db.js";
 import { OpenAlexService } from "../services/openalex.service.js";
 import { CrossrefService } from "../services/crossref.service.js";
 import { FieldReconciliationService } from "../services/fieldReconciliation.service.js";
+import { ScholarNormalizationService } from "../integrations/googleScholar/scholarNormalization.service.js";
 import { resilientFetch } from "../utils/resilientFetch.js";
 
 async function enrichAllAbstracts() {
@@ -81,7 +82,11 @@ async function enrichAllAbstracts() {
                 fetchedAbstract = rawAbstract;
                 source = "OPENALEX";
                 if (work.doi && !paper.doi) {
-                  fetchedDoi = work.doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "").trim();
+                  const normDoi = ScholarNormalizationService.normalizeDoi(work.doi);
+                  const similarity = ScholarNormalizationService.titleSimilarity(paper.title, work.title || "");
+                  if (normDoi && similarity >= 0.85) {
+                    fetchedDoi = normDoi;
+                  }
                 }
                 break;
               }

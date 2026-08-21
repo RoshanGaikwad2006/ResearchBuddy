@@ -1,15 +1,18 @@
 import { prisma } from "../config/db.js";
 import type { ResearchStatus } from "@prisma/client";
 import type { CreateResearchDTO, UpdateResearchDTO } from "../validation/research.validation.js";
+import { ScholarNormalizationService } from "../integrations/googleScholar/scholarNormalization.service.js";
 
 export class ResearchService {
   static async create(data: CreateResearchDTO, createdById: string) {
-    if (data.doi) {
+    const normalizedDoi = data.doi ? ScholarNormalizationService.normalizeDoi(data.doi) : null;
+
+    if (normalizedDoi) {
       const existingDoi = await prisma.research.findUnique({
-        where: { doi: data.doi },
+        where: { doi: normalizedDoi },
       });
       if (existingDoi) {
-        throw new Error(`Research with DOI '${data.doi}' already exists`);
+        throw new Error(`Research with DOI '${normalizedDoi}' already exists`);
       }
     }
 
@@ -19,7 +22,7 @@ export class ResearchService {
         abstract: data.abstract,
         keywords: data.keywords,
         researchArea: data.researchArea,
-        doi: data.doi || null,
+        doi: normalizedDoi,
         journal: data.journal || null,
         conference: data.conference || null,
         venueType: data.venueType || (data.patentNumber ? "PATENT" : data.isbn ? "BOOK" : data.conference ? "CONFERENCE" : "JOURNAL"),

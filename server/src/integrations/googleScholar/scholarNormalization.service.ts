@@ -6,9 +6,21 @@ export class ScholarNormalizationService {
     if (!doi) return null;
     const clean = doi
       .replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
+      .replace(/^(doi:|doi\s+)/i, "")
       .trim()
       .toLowerCase();
-    return clean.length > 3 ? clean : null;
+
+    // Strict ISO 26324 / Crossref DOI syntax validation guard
+    const validDoiPattern = /^10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+$/;
+    if (!validDoiPattern.test(clean)) {
+      return null;
+    }
+
+    if (clean.includes("xxx") || clean.includes("invalid") || clean.includes("placeholder")) {
+      return null;
+    }
+
+    return clean;
   }
 
   /**
