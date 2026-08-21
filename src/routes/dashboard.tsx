@@ -47,6 +47,7 @@ import { AuditDashboardView } from "@/features/audit/components/AuditDashboardVi
 import { ResearchIntelligenceDashboardView } from "@/features/intelligence/components/ResearchIntelligenceDashboardView";
 import { FacultyResearchIntelligenceView } from "@/features/intelligence/components/FacultyResearchIntelligenceView";
 import { KnowledgeGraphView } from "@/features/knowledgeGraph/components/KnowledgeGraphView";
+import { MyResearchVaultView } from "@/features/vault/components/MyResearchVaultView";
 import { ResearchSubmissionModal } from "@/features/research/components/ResearchSubmissionModal";
 import {
   DropdownMenu,
@@ -92,7 +93,8 @@ export type WorkspaceTab =
   | "analytics"
   | "reports"
   | "scholar-sync"
-  | "audits";
+  | "audits"
+  | "my-vault";
 
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
@@ -561,6 +563,9 @@ function DashboardPage() {
 
             {/* TAB CONTENT: Advanced Research Knowledge Graph */}
             {activeTab === "knowledge-graph" && <KnowledgeGraphView />}
+
+            {/* TAB CONTENT: Local-First Research Vault */}
+            {activeTab === "my-vault" && <MyResearchVaultView />}
 
           </main>
         </div>

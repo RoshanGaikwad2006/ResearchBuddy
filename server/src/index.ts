@@ -15,6 +15,7 @@ import reportRoutes from "./routes/report.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import intelligenceRoutes from "./routes/intelligence.routes.js";
 import knowledgeGraphRoutes from "./routes/knowledgeGraph.routes.js";
+import researchDocumentRoutes from "./routes/researchDocument.routes.js";
 import { prisma } from "./config/db.js";
 import { SchedulerService } from "./services/scheduler.service.js";
 
@@ -83,6 +84,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/audits", auditRoutes);
 app.use("/api/intelligence", intelligenceRoutes);
 app.use("/api/knowledge-graph", knowledgeGraphRoutes);
+app.use("/api/research-documents", researchDocumentRoutes);
 
 // 404 Handler
 app.use((_req, res) => {

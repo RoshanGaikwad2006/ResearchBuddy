@@ -64,6 +64,7 @@ model User {
   auditActionsTaken         AuditHistory[]     @relation("AuditActionBy")
   scholarSyncRunsTriggered  ScholarSyncRun[]   @relation("ScholarSyncRunTriggeredBy")
   aiQueryLogs               AIQueryLog[]
+  researchDocuments         ResearchDocument[] @relation("UserDocuments")
 
   @@map("users")
 }
@@ -195,6 +196,7 @@ model Research {
   auditIssues AuditIssue[]
   citationSnapshots CitationSnapshot[]
   embedding  ResearchEmbedding?
+  localDocuments ResearchDocument[] @relation("ResearchDocuments")
 
   @@index([createdById, status])
   @@index([departmentId, status])
@@ -606,5 +608,34 @@ model AIQueryLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ai_query_logs")
+}
+
+// ==========================================
+// LOCAL RESEARCH VAULT METADATA MODEL
+// ==========================================
+
+model ResearchDocument {
+  id               String   @id @default(uuid())
+  researchId       String?  // Foreign Key to Research (optional linking)
+  ownerUserId      String   // Foreign Key to User (Authoritative Owner)
+  localFileId      String   @unique // e.g. "kriya_local_8f92a3..."
+  originalFilename String
+  fileSize         Int
+  fileHash         String   // SHA-256 Hash
+  relativePath     String   // e.g. "papers/local_8f92/paper.pdf"
+  mimeType         String   @default("application/pdf")
+  syncStatus       String   @default("SYNCED") // "SYNCED", "OFFLINE_QUEUED"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  lastSyncedAt     DateTime @default(now())
+
+  // Relationships
+  owner    User      @relation("UserDocuments", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  research Research? @relation("ResearchDocuments", fields: [researchId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId])
+  @@index([researchId])
+  @@index([fileHash])
+  @@map("research_documents")
 }
 

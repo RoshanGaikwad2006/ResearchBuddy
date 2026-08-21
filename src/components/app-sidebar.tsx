@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Settings,
   Users,
+  FolderLock,
 } from "lucide-react";
 
 import {
@@ -64,6 +65,7 @@ export function AppSidebar({ onSelectTab, onOpenSubmitModal, activeTab, avatarUr
           tab: (role === "FACULTY" || role === "STUDENT") ? "my-publications" as WorkspaceTab : "publications" as WorkspaceTab,
           icon: LibraryBig,
         },
+        { title: "My Research Vault", tab: "my-vault" as WorkspaceTab, icon: FolderLock, roles: ["FACULTY", "ADMIN"] },
         { title: "Submit Research", action: "modal", icon: FilePlus2, roles: ["FACULTY", "STUDENT", "ADMIN"] },
         { title: "Research Analytics", tab: "analytics" as WorkspaceTab, icon: BarChart3, roles: ["FACULTY", "RESEARCH_CELL", "ADMIN"] },
         { title: "Report Engine", tab: "reports" as WorkspaceTab, icon: FileSpreadsheet, roles: ["FACULTY", "RESEARCH_CELL", "ADMIN"] },
