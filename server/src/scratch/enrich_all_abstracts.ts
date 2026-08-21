@@ -94,12 +94,20 @@ async function enrichAllAbstracts() {
     }
 
     if (fetchedAbstract) {
+      let finalDoiToSet: string | undefined = paper.doi || undefined;
+      if (!finalDoiToSet && fetchedDoi) {
+        const doiExists = await prisma.research.findUnique({ where: { doi: fetchedDoi } });
+        if (!doiExists) {
+          finalDoiToSet = fetchedDoi;
+        }
+      }
+
       await prisma.research.update({
         where: { id: paper.id },
         data: {
           abstract: fetchedAbstract,
           abstractSource: source,
-          doi: paper.doi || fetchedDoi || undefined,
+          doi: finalDoiToSet,
         },
       });
 
