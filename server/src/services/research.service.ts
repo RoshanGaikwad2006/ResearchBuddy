@@ -294,4 +294,61 @@ export class ResearchService {
       },
     };
   }
+
+  static async enrichAbstract(id: string) {
+    const paper = await prisma.research.findUnique({ where: { id } });
+    if (!paper) throw new Error("Research paper not found.");
+
+    const { OpenAlexService } = await import("./openalex.service.js");
+    const { CrossrefService } = await import("./crossref.service.js");
+    const { FieldReconciliationService } = await import("./fieldReconciliation.service.js");
+    const { resilientFetch } = await import("../utils/resilientFetch.js");
+
+    let fetchedAbstract: string | null = null;
+    let source = "OPENALEX";
+
+    if (paper.doi) {
+      const alexMeta = await OpenAlexService.fetchMetadata(paper.doi);
+      if (alexMeta?.abstract && FieldReconciliationService.isValidAbstract(alexMeta.abstract, paper.title)) {
+        fetchedAbstract = alexMeta.abstract;
+        source = "OPENALEX";
+      } else {
+        const crossMeta = await CrossrefService.fetchMetadata(paper.doi);
+        if (crossMeta?.abstract && FieldReconciliationService.isValidAbstract(crossMeta.abstract, paper.title)) {
+          fetchedAbstract = crossMeta.abstract;
+          source = "CROSSREF";
+        }
+      }
+    }
+
+    if (!fetchedAbstract && paper.title) {
+      const searchUrl = `https://api.openalex.org/works?search=${encodeURIComponent(paper.title)}&per_page=3`;
+      const resp = await resilientFetch(searchUrl, {
+        headers: { "User-Agent": "KRIYA-Research-Platform/1.0 (mailto:admin@university.edu)" },
+        timeoutMs: 10000,
+      });
+      if (resp && resp.ok) {
+        const resData: any = await resp.json();
+        if (resData.results && resData.results.length > 0) {
+          for (const work of resData.results) {
+            const rawAbstract = FieldReconciliationService.reconstructOpenAlexAbstract(work.abstract_inverted_index);
+            if (rawAbstract && FieldReconciliationService.isValidAbstract(rawAbstract, paper.title)) {
+              fetchedAbstract = rawAbstract;
+              source = "OPENALEX";
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (!fetchedAbstract) {
+      throw new Error("Could not resolve full text abstract from Open Science registries.");
+    }
+
+    return prisma.research.update({
+      where: { id },
+      data: { abstract: fetchedAbstract, abstractSource: source },
+    });
+  }
 }

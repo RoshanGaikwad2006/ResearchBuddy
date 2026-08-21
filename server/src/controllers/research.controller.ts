@@ -186,3 +186,18 @@ export const updateAuthorAffiliation = async (req: AuthenticatedRequest, res: Re
     });
   }
 };
+
+export const enrichResearchAbstractController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = getParamId(req.params.id);
+    if (!id) {
+      res.status(400).json({ message: "Research ID required" });
+      return;
+    }
+
+    const updated = await ResearchService.enrichAbstract(id);
+    res.status(200).json({ message: "Research paper abstract enriched successfully", research: updated });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to enrich abstract" });
+  }
+};
