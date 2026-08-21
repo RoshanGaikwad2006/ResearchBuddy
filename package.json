@@ -10,8 +10,27 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "desktop:dev": "electron .",
+    "desktop:build": "vite build && electron-builder --win",
     "lint": "eslint .",
     "format": "prettier --write ."
+  },
+  "build": {
+    "appId": "com.kriya.researchvault",
+    "productName": "KRIYA Desktop Vault",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
