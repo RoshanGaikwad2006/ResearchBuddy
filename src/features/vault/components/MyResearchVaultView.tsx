@@ -27,7 +27,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { VaultDocument } from "@/types/vault";
-import apiClient from "@/services/apiClient";
+import apiClient, { getStoredToken } from "@/services/apiClient";
+import { useAuth } from "@/features/auth/hooks/useAuth";
 import { useMyResearchList } from "@/features/research/hooks/useResearch";
 
 function formatBytes(bytes: number): string {
@@ -192,13 +193,15 @@ export function MyResearchVaultView() {
     }
   };
 
+  const { token: authStateToken } = useAuth();
+
   const handleSyncMetadata = async () => {
     const bridge = window.kriyaVaultBridge;
     if (!bridge || !bridge.isDesktop) return;
 
     setIsSyncing(true);
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token") || undefined;
+      const token = authStateToken || getStoredToken() || localStorage.getItem("kriya_access_token") || localStorage.getItem("token") || undefined;
       const res = await bridge.syncMetadataQueue(token);
       if (res.success) {
         setNoticeMessage({
