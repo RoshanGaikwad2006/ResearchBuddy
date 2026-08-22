@@ -8,6 +8,7 @@ import { ResearchSubmissionModal } from "./ResearchSubmissionModal";
 import { ResearchDetailModal } from "./ResearchDetailModal";
 import type { ResearchItem, ResearchStatusType } from "@/services/research.service";
 import { parseAuthorRoles } from "@/utils/authorFormatter";
+import { getGoogleScholarUrl } from "@/utils/scholarLink";
 
 export function ResearchListView() {
   const [search, setSearch] = useState("");
@@ -185,18 +186,24 @@ export function ResearchListView() {
                 )}
               </div>
 
-              <div className="mt-4 border-t border-border pt-3 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">
-                  {item.journal || item.conference || "Publication"}
-                </span>
+              <div className="mt-4 border-t border-border pt-3 flex items-center justify-between gap-2">
+                <a
+                  href={getGoogleScholarUrl(item)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 rounded shrink-0 transition-colors"
+                  title="Open paper on Google Scholar"
+                >
+                  🎓 Google Scholar
+                </a>
 
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedResearch(item)}
-                  className="gap-1 text-xs text-primary"
+                  className="gap-1 text-xs text-primary shrink-0"
                 >
-                  <Eye className="h-3.5 w-3.5" /> View Details
+                  <Eye className="h-3.5 w-3.5" /> Details
                 </Button>
               </div>
             </div>

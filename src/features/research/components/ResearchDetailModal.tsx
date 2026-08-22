@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X } from "lucide-react";
 import type { ResearchItem, ResearchAuthorItem } from "@/services/research.service";
 import { updateAuthorAffiliationApi } from "@/services/faculty.service";
+import { getGoogleScholarUrl } from "@/utils/scholarLink";
 
 interface ResearchDetailModalProps {
   open: boolean;
@@ -127,9 +128,20 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
     <Dialog open={open} onOpenChange={(o) => { setEditingAuthorId(null); onOpenChange(o); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            {getStatusBadge(research.status)}
-            <span className="text-xs text-muted-foreground">Year: {research.publicationYear}</span>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              {getStatusBadge(research.status)}
+              <span className="text-xs text-muted-foreground">Year: {research.publicationYear}</span>
+            </div>
+
+            <a
+              href={getGoogleScholarUrl(research)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-3 py-1 rounded-md flex items-center gap-1.5 transition-colors"
+            >
+              🎓 View on Google Scholar <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
           <DialogTitle className="text-xl leading-snug mt-1">{research.title}</DialogTitle>
         </DialogHeader>

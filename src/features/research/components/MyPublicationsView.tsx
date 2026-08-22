@@ -8,6 +8,7 @@ import { ResearchSubmissionModal } from "./ResearchSubmissionModal";
 import { ResearchDetailModal } from "./ResearchDetailModal";
 import type { ResearchItem, ResearchStatusType } from "@/services/research.service";
 import { parseAuthorRoles } from "@/utils/authorFormatter";
+import { getGoogleScholarUrl } from "@/utils/scholarLink";
 
 export function MyPublicationsView() {
   const [search, setSearch] = useState("");
@@ -335,28 +336,39 @@ export function MyPublicationsView() {
                   </span>
                 </div>
 
-                {/* View Details Button */}
-                <div className="pt-1 flex items-center justify-between">
-                  {pub.doi ? (
+                {/* View Details & Direct Google Scholar Links */}
+                <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/40 mt-1">
+                  <div className="flex items-center gap-2 truncate">
                     <a
-                      href={`https://doi.org/${pub.doi}`}
+                      href={getGoogleScholarUrl(pub)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] font-medium text-emerald-600 hover:underline flex items-center gap-1"
+                      className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 rounded shrink-0 transition-colors"
+                      title="Open paper on Google Scholar"
                     >
-                      <ExternalLink className="h-3 w-3" /> DOI: {pub.doi}
+                      🎓 Google Scholar
                     </a>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">No Registered DOI</span>
-                  )}
+
+                    {pub.doi && (
+                      <a
+                        href={`https://doi.org/${pub.doi}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] font-medium text-emerald-600 hover:underline flex items-center gap-1 truncate"
+                        title={`Open DOI: ${pub.doi}`}
+                      >
+                        <ExternalLink className="h-3 w-3 shrink-0" /> DOI
+                      </a>
+                    )}
+                  </div>
 
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedResearch(pub)}
-                    className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10"
+                    className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10 shrink-0"
                   >
-                    <Eye className="h-3.5 w-3.5" /> View Details
+                    <Eye className="h-3.5 w-3.5" /> Details
                   </Button>
                 </div>
               </div>
