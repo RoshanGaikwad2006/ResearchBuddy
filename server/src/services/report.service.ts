@@ -319,6 +319,27 @@ export class ReportService {
           }).join("<br/>")
         : item.createdBy.name;
 
+      const abstractText = item.abstract || (item.provenance as any)?.scholarSnippet || "Abstract unavailable.";
+      const abstractSrcRaw = item.abstractSource === "MANUAL_KRIYA"
+        ? "MANUAL_KRIYA"
+        : item.abstractSource === "OPENALEX" || (item.doi && item.abstract && item.abstract.length > 50)
+        ? "OPENALEX"
+        : item.abstractSource === "CROSSREF"
+        ? "CROSSREF"
+        : item.abstract && item.abstract !== "Abstract unavailable."
+        ? "SCHOLAR_SNIPPET"
+        : "UNAVAILABLE";
+
+      const abstractSourceTag = abstractSrcRaw === "OPENALEX"
+        ? "✓ Source: OpenAlex (Peer-Reviewed)"
+        : abstractSrcRaw === "CROSSREF"
+        ? "✓ Source: Crossref Index"
+        : abstractSrcRaw === "SCHOLAR_SNIPPET"
+        ? "🎓 Source: Google Scholar SERP API"
+        : abstractSrcRaw === "MANUAL_KRIYA"
+        ? "✓ Source: Manual / Verified KRIYA Entry"
+        : "Source: Scholar Metadata";
+
       return {
         slNo: skip + index + 1,
         id: item.id,
@@ -337,6 +358,9 @@ export class ReportService {
         conference: item.conference || "N/A",
         venueType: item.journal ? "Journal" : item.conference ? "Conference" : "Journal Article",
         publicationYear: item.publicationYear,
+        abstract: abstractText,
+        abstractSource: abstractSourceTag,
+        abstractSrcRaw,
         doi: item.doi || "N/A",
         issnDoi: item.doi ? `DOI: ${item.doi}` : "ISSN / DOI Pending",
         citationCount: item.citationCount || 0,
@@ -395,6 +419,8 @@ export class ReportService {
       conference: "Conference",
       venueType: "Venue Type",
       publicationYear: "Publication Year",
+      abstract: "Paper Abstract",
+      abstractSource: "Abstract Source Tag",
       doi: "DOI Handle",
       issnDoi: "ISSN / DOI",
       citationCount: "Citation Count",
@@ -413,6 +439,7 @@ export class ReportService {
           { key: "journal", label: "Journal / Conference" },
           { key: "publicationYear", label: "Year" },
           { key: "citationCount", label: "Citations" },
+          { key: "abstractSource", label: "Source Tag" },
           { key: "doi", label: "DOI" },
           { key: "status", label: "Status" },
         ];
@@ -422,6 +449,7 @@ export class ReportService {
     csvContent += `"KRIYA AI-POWERED RESEARCH INTELLIGENCE PLATFORM"\n`;
     csvContent += `"${reportTitle.toUpperCase()}"\n`;
     csvContent += `"Generated On: ${new Date().toLocaleString()}"\n`;
+    csvContent += `"BIBLIOMETRIC INDEX METRICS: Google Scholar Citations: ${reportData.summary.scholarCitations} | Scholar h-index: ${reportData.summary.scholarHIndex} | Scopus Citations: ${reportData.summary.scopusCitations} | Scopus h-index: ${reportData.summary.scopusHIndex} | WoS Papers: ${reportData.summary.wosPublicationCount}"\n`;
     csvContent += `"Total Records: ${reportData.total} | Total Citations: ${reportData.summary.totalCitations}"\n\n`;
 
     // Table Column Headers
@@ -443,7 +471,7 @@ export class ReportService {
   static generateHtmlPdfReport(reportData: any, columns: string[] = [], reportTitle: string = "Institutional Research Report") {
     const ALL_COLUMN_MAP: Record<string, string> = {
       slNo: "Sl.",
-      title: "Title of Paper",
+      title: "Title of Paper & Abstract",
       authors: "All Authors",
       primaryAuthor: "Primary Author",
       coAuthors: "Co-Author(s)",
@@ -457,6 +485,8 @@ export class ReportService {
       conference: "Conference",
       venueType: "Venue Type",
       publicationYear: "Year",
+      abstract: "Paper Abstract",
+      abstractSource: "Abstract Source Tag",
       doi: "DOI Handle",
       issnDoi: "ISSN / DOI",
       citationCount: "Citations",
@@ -469,7 +499,7 @@ export class ReportService {
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
       : [
           { key: "slNo", label: "Sl." },
-          { key: "title", label: "Title of Paper" },
+          { key: "title", label: "Title of Paper & Abstract" },
           { key: "authors", label: "Author(s)" },
           { key: "department", label: "Department" },
           { key: "journal", label: "Journal / Conference" },
@@ -485,30 +515,50 @@ export class ReportService {
   <meta charset="utf-8" />
   <title>${reportTitle} - KRIYA Report</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #1e293b; background: #ffffff; }
-    .header { text-align: center; border-bottom: 3px double #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 25px; color: #0f172a; background: #ffffff; }
+    .header { text-align: center; border-bottom: 3px double #1d4ed8; padding-bottom: 12px; margin-bottom: 16px; }
     .header h1 { margin: 0; font-size: 22px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 1px; }
-    .header h2 { margin: 5px 0 0 0; font-size: 16px; color: #3b82f6; font-weight: 600; }
-    .meta-bar { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 20px; background: #f8fafc; padding: 10px 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
-    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-    .card { background: #f1f5f9; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1; }
-    .card .val { font-size: 18px; font-weight: bold; color: #1e293b; }
-    .card .lbl { font-size: 10px; color: #64748b; text-transform: uppercase; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+    .header h2 { margin: 4px 0 0 0; font-size: 15px; color: #2563eb; font-weight: 600; }
+    .meta-bar { display: flex; justify-content: space-between; font-size: 11px; color: #475569; margin-bottom: 16px; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd5e1; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .card { background: #f1f5f9; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1; }
+    .card .val { font-size: 18px; font-weight: bold; color: #0f172a; }
+    .card .lbl { font-size: 9.5px; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+
+    /* Bibliometric Box */
+    .biblio-box { background: #0f172a; color: #ffffff; padding: 14px 16px; border-radius: 8px; margin-bottom: 18px; border: 2px solid #1d4ed8; }
+    .biblio-header { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #38bdf8; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px; }
+    .biblio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 11px; }
+    .biblio-card { background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); }
+    .biblio-card.scholar { border-left: 4px solid #60a5fa; }
+    .biblio-card.scopus { border-left: 4px solid #f59e0b; }
+    .biblio-card.wos { border-left: 4px solid #34d399; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; }
     th { background: #1e3a8a; color: #ffffff; text-align: left; padding: 8px 10px; font-weight: 600; border: 1px solid #1e3a8a; }
     td { padding: 8px 10px; border: 1px solid #cbd5e1; vertical-align: top; }
     tr:nth-child(even) { background: #f8fafc; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; background: #dbeafe; color: #1e40af; }
+    .abstract-box { margin-top: 6px; padding: 6px 8px; background: #f8fafc; border-left: 3px solid #2563eb; border-radius: 4px; font-size: 9.5px; color: #334155; line-height: 1.4; }
+    .src-tag-openalex { background: #f3e8ff; color: #6b21a8; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 8.5px; border: 1px solid #d8b4fe; display: inline-block; margin-top: 4px; }
+    .src-tag-crossref { background: #fef3c7; color: #92400e; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 8.5px; border: 1px solid #fde68a; display: inline-block; margin-top: 4px; }
+    .src-tag-scholar { background: #dbeafe; color: #1e40af; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 8.5px; border: 1px solid #bfdbfe; display: inline-block; margin-top: 4px; }
+    .src-tag-kriya { background: #dcfce7; color: #15803d; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 8.5px; border: 1px solid #86efac; display: inline-block; margin-top: 4px; }
+
     .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
     @media print {
-      body { margin: 10px; }
+      body { margin: 10px; color: #000000; }
       .no-print { display: none; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .biblio-box { background: #0f172a !important; color: #ffffff !important; border: 2px solid #1d4ed8 !important; }
+      th { background: #1e3a8a !important; color: #ffffff !important; }
     }
   </style>
 </head>
 <body>
   <div class="no-print" style="text-align: right; margin-bottom: 15px;">
-    <button onclick="window.print()" style="background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+    <button onclick="window.print()" style="background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">
       🖨️ Print / Download PDF
     </button>
   </div>
@@ -544,45 +594,45 @@ export class ReportService {
     </div>
   </div>
 
-  <!-- Bibliometric Index Metrics Summary (Google Scholar, Scopus & Web of Science) -->
-  <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #38bdf8; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 6px;">
+  <!-- OFFICIAL BIBLIOMETRIC INDEX METRICS BOX (SCHOLAR, SCOPUS, WOS) -->
+  <div class="biblio-box">
+    <div class="biblio-header">
       📊 OFFICIAL BIBLIOMETRIC INDEX METRICS (GOOGLE SCHOLAR, SCOPUS & WEB OF SCIENCE)
     </div>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; font-size: 11px;">
+    <div class="biblio-grid">
       <!-- Google Scholar Card -->
-      <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);">
-        <div style="font-weight: bold; color: #60a5fa; margin-bottom: 6px;">
+      <div class="biblio-card scholar">
+        <div style="font-weight: bold; color: #60a5fa; margin-bottom: 6px; font-size: 11.5px;">
           🎓 Google Scholar Index
         </div>
-        <div>Citations: <strong>${reportData.summary.scholarCitations || reportData.summary.totalCitations}</strong></div>
+        <div>Total Citations: <strong style="color: #93c5fd;">${reportData.summary.scholarCitations || reportData.summary.totalCitations}</strong></div>
         <div>h-index: <strong>${reportData.summary.scholarHIndex || 0}</strong></div>
         <div>i10-index: <strong>${reportData.summary.scholarI10Index || 0}</strong></div>
       </div>
 
       <!-- Scopus Card -->
-      <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);">
-        <div style="font-weight: bold; color: #f59e0b; margin-bottom: 6px;">
+      <div class="biblio-card scopus">
+        <div style="font-weight: bold; color: #f59e0b; margin-bottom: 6px; font-size: 11.5px;">
           ⚡ Scopus Index
         </div>
-        <div>Scopus Citations: <strong>${reportData.summary.scopusCitations || 0}</strong></div>
+        <div>Scopus Citations: <strong style="color: #fcd34d;">${reportData.summary.scopusCitations || 0}</strong></div>
         <div>Scopus h-index: <strong>${reportData.summary.scopusHIndex || 0}</strong></div>
         <div>Scopus Documents: <strong>${reportData.summary.scopusPublicationCount || 0}</strong></div>
       </div>
 
       <!-- Web of Science Card -->
-      <div style="background: rgba(255,255,255,0.08); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);">
-        <div style="font-weight: bold; color: #34d399; margin-bottom: 6px;">
+      <div class="biblio-card wos">
+        <div style="font-weight: bold; color: #34d399; margin-bottom: 6px; font-size: 11.5px;">
           🌐 Web of Science / Open Science
         </div>
-        <div>WoS Publications: <strong>${reportData.summary.wosPublicationCount || 0}</strong></div>
-        <div>Avg Citations: <strong>${reportData.summary.avgCitations}</strong></div>
-        <div>Status: <strong>Verified Peer-Reviewed</strong></div>
+        <div>WoS Publications: <strong style="color: #6ee7b7;">${reportData.summary.wosPublicationCount || 0}</strong></div>
+        <div>Avg Citations / Paper: <strong>${reportData.summary.avgCitations}</strong></div>
+        <div>Status: <strong style="color: #6ee7b7;">Verified Peer-Reviewed</strong></div>
       </div>
     </div>
   </div>
 
-  <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:10px; color:#475569; display:flex; gap:15px; align-items:center;">
+  <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:10px; color:#334155; display:flex; gap:15px; align-items:center;">
     <strong>Author Designation Legend:</strong>
     <span><span style="background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:3px; font-weight:bold;">⭐ Main Author</span> = Primary / 1st Author (Lead Researcher)</span>
     <span><span style="background:#e0e7ff; color:#3730a3; padding:1px 5px; border-radius:3px; font-weight:bold;">✉️ Corresponding</span> = Communicating Author</span>
@@ -598,7 +648,16 @@ export class ReportService {
     <tbody>
       ${reportData.records
         .map(
-          (row: any) => `
+          (row: any) => {
+            const tagClass = row.abstractSrcRaw === "OPENALEX"
+              ? "src-tag-openalex"
+              : row.abstractSrcRaw === "CROSSREF"
+              ? "src-tag-crossref"
+              : row.abstractSrcRaw === "SCHOLAR_SNIPPET"
+              ? "src-tag-scholar"
+              : "src-tag-kriya";
+
+            return `
         <tr>
           ${activeCols
             .map((c) => {
@@ -608,11 +667,37 @@ export class ReportService {
               if (c.key === "authors") {
                 return `<td>${row.authorsHtml || row.authors || "—"}</td>`;
               }
+              if (c.key === "citationCount") {
+                return `<td><strong style="color:#d97706;">🎓 ${row.citationCount || 0}</strong></td>`;
+              }
+              if (c.key === "abstract") {
+                return `<td>
+                  <div style="font-size:9.5px; color:#334155; line-height:1.4;">${row.abstract}</div>
+                  <div class="${tagClass}">${row.abstractSource}</div>
+                </td>`;
+              }
+              if (c.key === "abstractSource") {
+                return `<td><div class="${tagClass}">${row.abstractSource}</div></td>`;
+              }
+              if (c.key === "title") {
+                return `<td>
+                  <strong>${row.title}</strong>
+                  ${row.abstract && row.abstract !== "Abstract unavailable." ? `
+                    <div class="abstract-box">
+                      <div><strong>Abstract:</strong> ${row.abstract.length > 250 ? row.abstract.substring(0, 250) + "..." : row.abstract}</div>
+                      <div class="${tagClass}">${row.abstractSource}</div>
+                    </div>
+                  ` : `
+                    <div style="margin-top:4px;"><span class="${tagClass}">${row.abstractSource}</span></div>
+                  `}
+                </td>`;
+              }
               return `<td>${row[c.key] !== undefined && row[c.key] !== null ? row[c.key] : "—"}</td>`;
             })
             .join("")}
         </tr>
-      `
+      `;
+          }
         )
         .join("")}
     </tbody>

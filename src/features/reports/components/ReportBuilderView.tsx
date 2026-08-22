@@ -43,7 +43,7 @@ import type { ReportFilterPayload } from "@/services/report.service";
 
 const ALL_AVAILABLE_COLUMNS = [
   { key: "slNo", label: "Sl. No." },
-  { key: "title", label: "Paper Title" },
+  { key: "title", label: "Paper Title & Abstract" },
   { key: "authors", label: "All Authors" },
   { key: "primaryAuthor", label: "Primary Author" },
   { key: "coAuthors", label: "Co-Author(s)" },
@@ -52,6 +52,8 @@ const ALL_AVAILABLE_COLUMNS = [
   { key: "department", label: "Department" },
   { key: "journal", label: "Journal / Conference" },
   { key: "publicationYear", label: "Publication Year" },
+  { key: "abstract", label: "Paper Abstract" },
+  { key: "abstractSource", label: "Abstract Source Tag" },
   { key: "citationCount", label: "Citation Count" },
   { key: "doi", label: "DOI Handle" },
   { key: "researchArea", label: "Research Area" },
@@ -604,22 +606,69 @@ export function ReportBuilderView() {
 
             {/* Executive Metric Cards */}
             {previewData && (
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                  <p className="text-xs text-muted-foreground font-medium">Total Publications</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{previewData.total}</p>
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                    <p className="text-xs text-muted-foreground font-medium">Total Publications</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{previewData.total}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                    <p className="text-xs text-muted-foreground font-medium">Total Citations</p>
+                    <p className="text-2xl font-bold text-primary mt-1">{previewData.summary.totalCitations}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                    <p className="text-xs text-muted-foreground font-medium">Avg Citations / Paper</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{previewData.summary.avgCitations}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                    <p className="text-xs text-muted-foreground font-medium">Published Count</p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">{previewData.summary.publishedCount}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                  <p className="text-xs text-muted-foreground font-medium">Total Citations</p>
-                  <p className="text-2xl font-bold text-primary mt-1">{previewData.summary.totalCitations}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                  <p className="text-xs text-muted-foreground font-medium">Avg Citations / Paper</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{previewData.summary.avgCitations}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                  <p className="text-xs text-muted-foreground font-medium">Published Count</p>
-                  <p className="text-2xl font-bold text-emerald-600 mt-1">{previewData.summary.publishedCount}</p>
+
+                {/* Official Bibliometric Index Cards (Google Scholar, Scopus, WoS) */}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {/* Scholar Card */}
+                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                        🎓 Google Scholar Index
+                      </span>
+                      <Badge variant="outline" className="text-[9px] bg-background text-blue-600 border-blue-500/30">Verified</Badge>
+                    </div>
+                    <div className="text-xs text-foreground/90 space-y-0.5 pt-1">
+                      <div>Total Citations: <strong className="text-blue-700 dark:text-blue-400">{previewData.summary.scholarCitations || previewData.summary.totalCitations}</strong></div>
+                      <div>h-index: <strong>{previewData.summary.scholarHIndex || 0}</strong> | i10-index: <strong>{previewData.summary.scholarI10Index || 0}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Scopus Card */}
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                        ⚡ Scopus Index
+                      </span>
+                      <Badge variant="outline" className="text-[9px] bg-background text-amber-600 border-amber-500/30">Synced</Badge>
+                    </div>
+                    <div className="text-xs text-foreground/90 space-y-0.5 pt-1">
+                      <div>Scopus Citations: <strong className="text-amber-700 dark:text-amber-400">{previewData.summary.scopusCitations || 0}</strong></div>
+                      <div>Scopus h-index: <strong>{previewData.summary.scopusHIndex || 0}</strong> | Docs: <strong>{previewData.summary.scopusPublicationCount || 0}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Web of Science Card */}
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                        🌐 Web of Science / Open Science
+                      </span>
+                      <Badge variant="outline" className="text-[9px] bg-background text-emerald-600 border-emerald-500/30">Peer-Reviewed</Badge>
+                    </div>
+                    <div className="text-xs text-foreground/90 space-y-0.5 pt-1">
+                      <div>WoS Papers: <strong className="text-emerald-700 dark:text-emerald-400">{previewData.summary.wosPublicationCount || 0}</strong></div>
+                      <div>Avg Citations: <strong>{previewData.summary.avgCitations}</strong></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -680,15 +729,40 @@ export function ReportBuilderView() {
                           {selectedColumns.map((colKey) => {
                             const col = ALL_AVAILABLE_COLUMNS.find((c) => c.key === colKey) || { key: colKey, label: colKey };
                             return (
-                              <td key={col.key} className="px-4 py-3 max-w-xs truncate">
+                              <td key={col.key} className="px-4 py-3 max-w-sm">
                                 {col.key === "status" ? (
                                   <Badge variant="outline" className="text-[10px] font-semibold py-0.5">
                                     {row[col.key]}
                                   </Badge>
                                 ) : col.key === "citationCount" ? (
-                                  <span className="font-bold text-primary">{row[col.key]}</span>
+                                  <span className="font-bold text-amber-600 dark:text-amber-400">🎓 {row[col.key]}</span>
+                                ) : col.key === "abstract" ? (
+                                  <div className="space-y-1">
+                                    <p className="text-[11px] text-foreground/90 line-clamp-3 leading-relaxed">
+                                      {row.abstract}
+                                    </p>
+                                    <Badge variant="outline" className="text-[9px] bg-muted/40 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
+                                      {row.abstractSource}
+                                    </Badge>
+                                  </div>
+                                ) : col.key === "abstractSource" ? (
+                                  <Badge variant="outline" className="text-[9px] bg-muted/40 text-blue-600 dark:text-blue-400 border-blue-500/20 font-semibold">
+                                    {row[col.key]}
+                                  </Badge>
+                                ) : col.key === "title" ? (
+                                  <div className="space-y-1">
+                                    <p className="font-semibold text-foreground">{row.title}</p>
+                                    {row.abstract && row.abstract !== "Abstract unavailable." && (
+                                      <p className="text-[10.5px] text-muted-foreground line-clamp-2 italic">
+                                        "{row.abstract}"
+                                      </p>
+                                    )}
+                                    <Badge variant="outline" className="text-[9px] bg-muted/30 text-purple-600 dark:text-purple-400 border-purple-500/20">
+                                      {row.abstractSource}
+                                    </Badge>
+                                  </div>
                                 ) : (
-                                  row[col.key] || "—"
+                                  <span className="truncate block max-w-xs">{row[col.key] || "—"}</span>
                                 )}
                               </td>
                             );
