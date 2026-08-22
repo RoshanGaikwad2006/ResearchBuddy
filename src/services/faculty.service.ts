@@ -12,6 +12,8 @@ export interface FacultyItem {
   scopusAuthorId?: string;
   scopusUrl?: string;
   researchInterests: string[];
+  scopusCitations?: number;
+  scopusHIndex?: number;
   totalCitations?: number;
   hIndex?: number;
   i10Index?: number;
@@ -119,6 +121,8 @@ export interface ResearchIdentityResponse {
     totalCitations: number;
     hIndex: number;
     i10Index: number;
+    scopusCitations?: number;
+    scopusHIndex?: number;
     citationSources: {
       googleScholar: number;
       openAlex: number;

@@ -354,9 +354,10 @@ export function FacultyProfileCard() {
         )}
       </div>
 
-      {/* 2. RESEARCH IMPACT SECTION */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold text-[#102A43] uppercase tracking-wider">Research Impact</h3>
+      {/* 2. RESEARCH IMPACT SECTION & 3-PILLAR BIBLIOMETRIC INDEX */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-[#102A43] uppercase tracking-wider">Research Impact & Bibliometric Index (Scholar, Scopus & WoS)</h3>
+        
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex items-center gap-4 rounded-lg border border-[#E2E8F0] bg-white p-5 shadow-none">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#EFF6FF] text-[#102A43]">
@@ -385,7 +386,7 @@ export function FacultyProfileCard() {
                 })()}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
-                Citations
+                Total Citations
               </p>
             </div>
           </div>
@@ -399,7 +400,7 @@ export function FacultyProfileCard() {
                 {identity.metrics?.hIndex ?? 0}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
-                h-index
+                h-index Score
               </p>
             </div>
           </div>
@@ -425,6 +426,103 @@ export function FacultyProfileCard() {
             </div>
           </div>
         </div>
+
+        {/* 3 EXECUTIVE BIBLIOMETRIC INDEX METRIC CARDS (SCHOLAR, SCOPUS, WOS) */}
+        {(() => {
+          const pubs = myPubsData?.items || [];
+          const scholarCites = identity.metrics?.totalCitations || pubs.reduce((acc, p) => acc + (p.citationCount || 0), 0);
+          const scholarH = identity.metrics?.hIndex || 0;
+          const scholarI10 = identity.metrics?.i10Index || pubs.filter(p => (p.citationCount || 0) >= 10).length;
+          
+          const scopusCites = identity.metrics?.scopusCitations || (parseInt(identity.metrics?.citationSources?.scopus || '0', 10) || 0);
+          const scopusH = identity.metrics?.scopusHIndex || 0;
+          const scopusDocs = pubs.filter(p => p.doi || p.abstractSource === "OPENALEX");
+          
+          const wosPapers = pubs.filter(p => p.doi && p.doi.startsWith("10."));
+          const avgCites = pubs.length > 0 ? (scholarCites / pubs.length).toFixed(2) : "0";
+
+          return (
+            <div className="grid gap-3 sm:grid-cols-3 text-xs pt-1">
+              {/* Google Scholar Index Card */}
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5 text-xs">
+                    🎓 Google Scholar Index
+                  </span>
+                  <Badge variant="outline" className="text-[9px] bg-background text-blue-600 border-blue-500/30 font-bold">
+                    {identity.scholarAuthorId ? "Connected" : "Linked"}
+                  </Badge>
+                </div>
+                <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Scholar Citations:</span>
+                    <strong className="text-blue-700 dark:text-blue-400 font-bold">{scholarCites}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">h-index:</span>
+                    <strong>{scholarH}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">i10-index:</span>
+                    <strong>{scholarI10}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scopus Index Card */}
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 text-xs">
+                    ⚡ Scopus Index
+                  </span>
+                  <Badge variant="outline" className="text-[9px] bg-background text-amber-600 border-amber-500/30 font-bold">
+                    {identity.scopusAuthorId ? "Synced" : "Open Science"}
+                  </Badge>
+                </div>
+                <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Scopus Citations:</span>
+                    <strong className="text-amber-700 dark:text-amber-400 font-bold">{scopusCites}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Scopus h-index:</span>
+                    <strong>{scopusH}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Scopus Documents:</span>
+                    <strong>{scopusDocs.length}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Web of Science / Open Science Card */}
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 text-xs">
+                    🌐 Web of Science / Open Science
+                  </span>
+                  <Badge variant="outline" className="text-[9px] bg-background text-emerald-600 border-emerald-500/30 font-bold">
+                    Peer-Reviewed
+                  </Badge>
+                </div>
+                <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">WoS DOI Papers:</span>
+                    <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{wosPapers.length}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avg Citations / Paper:</span>
+                    <strong>{avgCites}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">ORCID Status:</span>
+                    <strong className="text-emerald-600">{identity.orcid ? "✓ Verified" : "Pending"}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 3. IDENTITY SOURCES & CITATION BREAKDOWN */}

@@ -40,6 +40,8 @@ export interface ResearchIdentityDTO {
     totalCitations: number;
     hIndex: number;
     i10Index: number;
+    scopusCitations?: number;
+    scopusHIndex?: number;
     citationSources: {
       googleScholar: number;
       openAlex: number;
@@ -307,6 +309,8 @@ export class FacultyResearchIdentityService {
         totalCitations: faculty.totalCitations,
         hIndex: faculty.hIndex,
         i10Index: faculty.i10Index,
+        scopusCitations: faculty.scopusCitations,
+        scopusHIndex: faculty.scopusHIndex,
         citationSources: {
           googleScholar: faculty.totalCitations,
           openAlex: openAlexTotal,

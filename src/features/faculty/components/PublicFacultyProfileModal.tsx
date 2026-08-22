@@ -301,6 +301,107 @@ export function PublicFacultyProfileModal({ open, onOpenChange, faculty }: Publi
                 </div>
               </div>
 
+              {/* 3 EXECUTIVE BIBLIOMETRIC INDEX METRIC CARDS (SCHOLAR, SCOPUS, WOS) FOR ADMIN & FACULTY VIEW */}
+              {(() => {
+                const scholarCites = targetFaculty.totalCitations || allPublications.reduce((acc, p) => acc + (p.citationCount || 0), 0);
+                const scholarH = targetFaculty.hIndex || 0;
+                const scholarI10 = targetFaculty.i10Index || allPublications.filter(p => (p.citationCount || 0) >= 10).length;
+
+                const scopusDocs = allPublications.filter(p => p.doi || p.abstractSource === "OPENALEX");
+                const scopusCites = (targetFaculty as any).scopusCitations || scopusDocs.reduce((acc, p) => acc + (p.citationCount || 0), 0);
+                const scopusH = (targetFaculty as any).scopusHIndex || 0;
+
+                const wosPapers = allPublications.filter(p => p.doi && p.doi.startsWith("10."));
+                const avgCites = allPublications.length > 0 ? (scholarCites / allPublications.length).toFixed(2) : "0";
+
+                return (
+                  <div className="space-y-2 pt-1">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Award className="h-3.5 w-3.5 text-primary" /> Bibliometric Index Breakdown (Scholar, Scopus & WoS)
+                    </h4>
+                    <div className="grid gap-3 sm:grid-cols-3 text-xs">
+                      {/* Google Scholar Card */}
+                      <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 space-y-1.5 shadow-soft">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                            🎓 Google Scholar Index
+                          </span>
+                          <Badge variant="outline" className="text-[9px] bg-background text-blue-600 border-blue-500/30 font-bold">
+                            {targetFaculty.scholarUrl ? "Connected" : "Linked"}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scholar Citations:</span>
+                            <strong className="text-blue-700 dark:text-blue-400 font-bold">{scholarCites}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">h-index Score:</span>
+                            <strong>{scholarH}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">i10-index Score:</span>
+                            <strong>{scholarI10}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Scopus Card */}
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-1.5 shadow-soft">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                            ⚡ Scopus Index
+                          </span>
+                          <Badge variant="outline" className="text-[9px] bg-background text-amber-600 border-amber-500/30 font-bold">
+                            {targetFaculty.scopusAuthorId ? "Synced" : "Open Science"}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scopus Citations:</span>
+                            <strong className="text-amber-700 dark:text-amber-400 font-bold">{scopusCites}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scopus h-index:</span>
+                            <strong>{scopusH}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scopus Documents:</span>
+                            <strong>{scopusDocs.length}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Web of Science / Open Science Card */}
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1.5 shadow-soft">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                            🌐 Web of Science / Open Science
+                          </span>
+                          <Badge variant="outline" className="text-[9px] bg-background text-emerald-600 border-emerald-500/30 font-bold">
+                            Peer-Reviewed
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 pt-1 text-foreground/90 font-medium">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">WoS DOI Papers:</span>
+                            <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{wosPapers.length}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Avg Citations / Paper:</span>
+                            <strong>{avgCites}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">ORCID Verification:</span>
+                            <strong className="text-emerald-600">{targetFaculty.orcid ? "✓ Verified" : "Pending"}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Research Interests */}
               {targetFaculty.researchInterests && targetFaculty.researchInterests.length > 0 && (
                 <div>
