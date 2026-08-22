@@ -241,7 +241,19 @@ export class ReportService {
     const publishedCount = items.filter((i) => String(i.status) === "ACCEPTED" || String(i.status) === "APPROVED" || String(i.status) === "PUBLISHED").length;
     const avgCitations = items.length > 0 ? (allCitations / items.length).toFixed(2) : "0";
 
-    // Query Faculty Bibliometric Profiles for Index Metrics
+    // 1. Calculate REAL h-index and i10-index directly from queried research papers (items)
+    const citationsSorted = items.map((i) => i.citationCount || 0).sort((a, b) => b - a);
+    let computedHIndex = 0;
+    for (let i = 0; i < citationsSorted.length; i++) {
+      if (citationsSorted[i] >= i + 1) {
+        computedHIndex = i + 1;
+      } else {
+        break;
+      }
+    }
+    const computedI10Index = citationsSorted.filter((c) => c >= 10).length;
+
+    // 2. Query Faculty Bibliometric Profiles for Index Metrics if synced
     const facultyProfiles = await prisma.faculty.findMany({
       where: departmentId ? { departmentId } : {},
       select: {
@@ -260,13 +272,33 @@ export class ReportService {
     const totalScopusCit = facultyProfiles.reduce((acc, f) => acc + (f.scopusCitations || 0), 0);
     const maxScopusH = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f) => f.scopusHIndex || 0)) : 0;
 
+    // 3. Google Scholar Metrics (Real paper citation & h-index / i10-index calculation)
     const scholarCitations = Math.max(allCitations, totalScholarCit);
-    const scholarHIndex = maxScholarH || Math.min(items.length, 5);
-    const scholarI10Index = maxScholarI10 || Math.min(items.length, 3);
-    const scopusCitations = totalScopusCit || Math.floor(allCitations * 0.85);
-    const scopusHIndex = maxScopusH || Math.min(items.length, 4);
-    const scopusPublicationCount = publishedCount;
-    const wosPublicationCount = publishedCount;
+    const scholarHIndex = Math.max(computedHIndex, maxScholarH);
+    const scholarI10Index = Math.max(computedI10Index, maxScholarI10);
+
+    // 4. Real Scopus Metrics (Papers with DOI or OpenAlex or Scopus ID)
+    const scopusItems = items.filter(
+      (i) => (i.doi && i.doi.length > 3) || i.abstractSource === "OPENALEX" || (i as any).scopusId
+    );
+    const scopusPublicationCount = scopusItems.length;
+    const scopusCitationsFromPapers = scopusItems.reduce((acc, i) => acc + (i.citationCount || 0), 0);
+    const scopusCitations = Math.max(totalScopusCit, scopusCitationsFromPapers);
+
+    const scopusCitationsSorted = scopusItems.map((i) => i.citationCount || 0).sort((a, b) => b - a);
+    let computedScopusHIndex = 0;
+    for (let i = 0; i < scopusCitationsSorted.length; i++) {
+      if (scopusCitationsSorted[i] >= i + 1) {
+        computedScopusHIndex = i + 1;
+      } else {
+        break;
+      }
+    }
+    const scopusHIndex = Math.max(maxScopusH, computedScopusHIndex);
+
+    // 5. Real Web of Science (WoS) / Peer-Reviewed DOI Papers
+    const wosItems = items.filter((i) => i.doi && i.doi.startsWith("10."));
+    const wosPublicationCount = wosItems.length;
 
     // Grouping Aggregation if requested
     let groupSummaries: any[] = [];
