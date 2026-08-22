@@ -198,7 +198,7 @@ export class ScholarSyncAgent {
               const candidateDoi = ScholarNormalizationService.normalizeDoi(fetchedMeta.doi);
               if (candidateDoi) {
                 const similarity = ScholarNormalizationService.titleSimilarity(pub.title, fetchedMeta.title || "");
-                if (similarity >= 0.85) {
+                if (similarity >= 0.85 && matchesFaculty) {
                   resolvedDoi = candidateDoi;
                 }
               }

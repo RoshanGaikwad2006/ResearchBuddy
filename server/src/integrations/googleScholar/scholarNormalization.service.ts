@@ -81,4 +81,35 @@ export class ScholarNormalizationService {
     const maxLen = Math.max(lenA, lenB);
     return maxLen === 0 ? 1.0 : (maxLen - matrix[lenA][lenB]) / maxLen;
   }
+
+  /**
+   * Strong Author Overlap Safeguard: Verify that local author names match candidate paper authors
+   */
+  static hasAuthorMatch(localAuthorNames: string[], remoteAuthorNames: string[]): boolean {
+    if (!localAuthorNames || localAuthorNames.length === 0) return true;
+    if (!remoteAuthorNames || remoteAuthorNames.length === 0) return false;
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+
+    for (const local of localAuthorNames) {
+      const localNorm = normalize(local);
+      if (localNorm.length < 3) continue;
+
+      const parts = local.trim().split(" ");
+      const lastName = parts[parts.length - 1];
+      const lastNameNorm = normalize(lastName);
+
+      for (const remote of remoteAuthorNames) {
+        const remoteNorm = normalize(remote);
+        if (remoteNorm.includes(localNorm) || localNorm.includes(remoteNorm)) {
+          return true;
+        }
+        if (lastNameNorm.length >= 3 && remoteNorm.includes(lastNameNorm)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
 }

@@ -17,6 +17,7 @@ async function enrichAllAbstracts() {
       doi: true,
       abstract: true,
       abstractSource: true,
+      authors: true,
     },
   });
 
@@ -84,7 +85,11 @@ async function enrichAllAbstracts() {
                 if (work.doi && !paper.doi) {
                   const normDoi = ScholarNormalizationService.normalizeDoi(work.doi);
                   const similarity = ScholarNormalizationService.titleSimilarity(paper.title, work.title || "");
-                  if (normDoi && similarity >= 0.85) {
+                  const remoteAuthors = (work.authorships || []).map((a: any) => a.author?.display_name || "");
+                  const localAuthorNames = paper.authors.map((a: any) => a.authorName);
+                  const authorMatch = ScholarNormalizationService.hasAuthorMatch(localAuthorNames, remoteAuthors);
+
+                  if (normDoi && similarity >= 0.85 && authorMatch) {
                     fetchedDoi = normDoi;
                   }
                 }
