@@ -34,6 +34,9 @@ import { useDashboardMetrics } from "@/features/dashboard/hooks/useDashboard";
 import { ScholarSyncDashboardView } from "@/features/scholar/components/ScholarSyncDashboardView";
 import { ResearchListView } from "@/features/research/components/ResearchListView";
 import { MyPublicationsView } from "@/features/research/components/MyPublicationsView";
+import { ResearchDetailModal } from "@/features/research/components/ResearchDetailModal";
+import { useMyResearchList } from "@/features/research/hooks/useResearch";
+import type { ResearchItem } from "@/services/research.service";
 import { FacultyListView } from "@/features/faculty/components/FacultyListView";
 import { FacultyProfileCard } from "@/features/faculty/components/FacultyProfileCard";
 import { useMyFacultyProfile } from "@/features/faculty/hooks/useFaculty";
@@ -99,6 +102,7 @@ export type WorkspaceTab =
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [selectedResearchModalItem, setSelectedResearchModalItem] = useState<ResearchItem | null>(null);
 
   const { user, role, logout } = useAuth();
   const { data: facultyData } = useMyFacultyProfile();
@@ -106,6 +110,7 @@ function DashboardPage() {
   const navigate = useNavigate();
 
   const { data: metricsData, isLoading: isMetricsLoading } = useDashboardMetrics();
+  const { data: myResearchesData } = useMyResearchList({ limit: 100 });
 
   const handleSignOut = async () => {
     await logout();
@@ -186,21 +191,29 @@ function DashboardPage() {
     },
   ];
 
-  const hasRealSubmissions = metricsData?.recentSubmissions && metricsData.recentSubmissions.length > 0;
-  const displayPublications = hasRealSubmissions
-    ? metricsData.recentSubmissions.map((paper) => ({
+  const realPapers = (myResearchesData?.items && myResearchesData.items.length > 0)
+    ? myResearchesData.items
+    : (metricsData?.recentSubmissions && metricsData.recentSubmissions.length > 0)
+    ? metricsData.recentSubmissions
+    : null;
+
+  const displayPublications = realPapers
+    ? realPapers.map((paper: any) => ({
         id: paper.id,
         title: paper.title,
-        author: paper.createdBy?.name || "Kushal Birla",
+        author: (paper.authors && paper.authors.length > 0)
+          ? paper.authors.map((a: any) => a.authorName).join(", ")
+          : (paper.createdBy?.name || user?.name || "Kushal Birla"),
         department: paper.department?.name || "Computer Science & Engineering",
-        status: paper.status,
-        date: new Date(paper.createdAt).toLocaleDateString("en-GB", {
+        status: paper.status || "PUBLISHED",
+        date: paper.publicationYear ? String(paper.publicationYear) : new Date(paper.createdAt || Date.now()).toLocaleDateString("en-GB", {
           day: "numeric",
           month: "short",
           year: "numeric",
         }),
+        rawItem: paper as ResearchItem,
       }))
-    : defaultPublications;
+    : defaultPublications.map((p) => ({ ...p, rawItem: null as any }));
 
   return (
     <SidebarProvider>
@@ -468,7 +481,12 @@ function DashboardPage() {
                   {/* Right Column: Recent Publications */}
                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-6 shadow-none">
                     <div className="flex items-center justify-between pb-4 border-b border-[#E2E8F0]">
-                      <h3 className="text-base font-bold text-[#102A43]">Recent Publications</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-[#102A43]">Recent Publications</h3>
+                        <span className="text-xs bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">
+                          {displayPublications.length} Total
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setActiveTab(role === "FACULTY" || role === "STUDENT" ? "my-publications" : "publications")}
@@ -478,19 +496,27 @@ function DashboardPage() {
                       </button>
                     </div>
 
-                    <div className="divide-y divide-[#E2E8F0] mt-1">
+                    <div className="divide-y divide-[#E2E8F0] mt-1 max-h-[440px] overflow-y-auto pr-1">
                       {displayPublications.map((pub) => (
-                        <div key={pub.id} className="py-4 flex justify-between items-start gap-4 hover:bg-[#F8FAFC] px-2 -mx-2 rounded-md transition-colors">
-                          <div className="space-y-1.5 min-w-0">
-                            <h4 className="text-xs font-bold text-[#102A43] leading-snug">
+                        <div
+                          key={pub.id}
+                          onClick={() => {
+                            if (pub.rawItem) {
+                              setSelectedResearchModalItem(pub.rawItem);
+                            }
+                          }}
+                          className="py-3 flex justify-between items-start gap-4 hover:bg-[#F8FAFC] px-2 -mx-2 rounded-md transition-colors cursor-pointer group"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <h4 className="text-xs font-bold text-[#102A43] leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                               {pub.title}
                             </h4>
-                            <p className="text-[10px] text-[#64748B] font-medium">
+                            <p className="text-[10px] text-[#64748B] font-medium truncate">
                               {pub.author}  •  {pub.department}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-2 shrink-0">
-                            <span className="inline-flex items-center rounded bg-[#EAF6EF] px-2 py-0.5 text-[9px] font-bold text-[#238B57] tracking-wider">
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <span className="inline-flex items-center rounded bg-[#EAF6EF] px-2 py-0.5 text-[9px] font-bold text-[#238B57] tracking-wider uppercase">
                               {pub.status}
                             </span>
                             <span className="text-[10px] text-[#64748B] font-medium">
@@ -574,6 +600,12 @@ function DashboardPage() {
       <ResearchSubmissionModal
         open={isSubmitModalOpen}
         onOpenChange={setIsSubmitModalOpen}
+      />
+
+      <ResearchDetailModal
+        open={!!selectedResearchModalItem}
+        onOpenChange={(open) => !open && setSelectedResearchModalItem(null)}
+        research={selectedResearchModalItem}
       />
     </SidebarProvider>
   );
