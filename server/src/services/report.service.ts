@@ -1,5 +1,6 @@
 import { prisma } from "../config/db.js";
 import type { Role } from "@prisma/client";
+import { parseAuthorRoles, formatAuthorsSummaryString } from "../utils/authorFormatter.js";
 
 export interface ReportFilterPayload {
   reportType: string;
@@ -266,20 +267,37 @@ export class ReportService {
 
     // Format Records for Table Display & Exporter Engine
     const records = items.map((item, index) => {
-      const allAuthors = item.authors.map((a) => a.authorName);
-      const authorsStr = allAuthors.join(", ") || item.createdBy.name;
-      const primaryAuthorStr = item.authors.find((a) => a.authorOrder === 1)?.authorName || allAuthors[0] || item.createdBy.name;
-      const coAuthorsList = allAuthors.filter((a) => a !== primaryAuthorStr);
-      const coAuthorsStr = coAuthorsList.length > 0 ? coAuthorsList.join(", ") : "N/A (Single Author)";
+      const formattedRoles = parseAuthorRoles(item.authors);
+      const authorsStr = formatAuthorsSummaryString(item.authors);
+      const primaryAuthorStr = item.authors.find((a) => a.authorOrder === 1)?.authorName || item.authors[0]?.authorName || item.createdBy.name;
+      const coAuthorsList = item.authors.filter((a) => a.authorOrder !== 1);
+      const coAuthorsStr = coAuthorsList.length > 0 ? coAuthorsList.map(a => a.authorName).join(", ") : "N/A (Single Author)";
 
       const primaryFaculty = item.authors.find((a) => a.faculty)?.faculty;
       const primaryStudent = item.authors.find((a) => a.student)?.student;
+
+      // Rendered HTML badges for PDF Report Table
+      const authorsHtml = formattedRoles.length > 0
+        ? formattedRoles.map((r: any) => {
+            if (r.isMainAuthor && r.isCorresponding) {
+              return `<span style="display:inline-block; margin-bottom:2px;"><strong>${r.authorName}</strong> <span style="background:#dbeafe; color:#1e40af; padding:1px 4px; border-radius:3px; font-size:9px; font-weight:bold;">⭐✉️ Main & Corresponding</span></span>`;
+            }
+            if (r.isMainAuthor) {
+              return `<span style="display:inline-block; margin-bottom:2px;"><strong>${r.authorName}</strong> <span style="background:#fef3c7; color:#92400e; padding:1px 4px; border-radius:3px; font-size:9px; font-weight:bold;">⭐ Main Author</span></span>`;
+            }
+            if (r.isCorresponding) {
+              return `<span style="display:inline-block; margin-bottom:2px;">${r.authorName} <span style="background:#e0e7ff; color:#3730a3; padding:1px 4px; border-radius:3px; font-size:9px; font-weight:bold;">✉️ Corresponding</span></span>`;
+            }
+            return `<span style="display:inline-block; margin-bottom:2px; color:#475569;">${r.authorName} <span style="background:#f1f5f9; color:#64748b; padding:1px 4px; border-radius:3px; font-size:9px;">Co-Author</span></span>`;
+          }).join("<br/>")
+        : item.createdBy.name;
 
       return {
         slNo: skip + index + 1,
         id: item.id,
         title: item.title,
         authors: authorsStr,
+        authorsHtml,
         primaryAuthor: primaryAuthorStr,
         coAuthors: coAuthorsStr,
         facultyName: primaryFaculty ? primaryFaculty.user.name : (item.createdBy.name || "N/A"),
@@ -492,6 +510,13 @@ export class ReportService {
     </div>
   </div>
 
+  <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:10px; color:#475569; display:flex; gap:15px; align-items:center;">
+    <strong>Author Designation Legend:</strong>
+    <span><span style="background:#fef3c7; color:#92400e; padding:1px 5px; border-radius:3px; font-weight:bold;">⭐ Main Author</span> = Primary / 1st Author (Lead Researcher)</span>
+    <span><span style="background:#e0e7ff; color:#3730a3; padding:1px 5px; border-radius:3px; font-weight:bold;">✉️ Corresponding</span> = Communicating Author</span>
+    <span><span style="background:#f1f5f9; color:#64748b; padding:1px 5px; border-radius:3px;">Co-Author</span> = Contributing Researcher</span>
+  </div>
+
   <table>
     <thead>
       <tr>
@@ -507,6 +532,9 @@ export class ReportService {
             .map((c) => {
               if (c.key === "status") {
                 return `<td><span class="badge">${row.status}</span></td>`;
+              }
+              if (c.key === "authors") {
+                return `<td>${row.authorsHtml || row.authors || "—"}</td>`;
               }
               return `<td>${row[c.key] !== undefined && row[c.key] !== null ? row[c.key] : "—"}</td>`;
             })

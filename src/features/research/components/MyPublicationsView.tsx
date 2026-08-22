@@ -7,6 +7,7 @@ import { useMyResearchList } from "../hooks/useResearch";
 import { ResearchSubmissionModal } from "./ResearchSubmissionModal";
 import { ResearchDetailModal } from "./ResearchDetailModal";
 import type { ResearchItem, ResearchStatusType } from "@/services/research.service";
+import { parseAuthorRoles } from "@/utils/authorFormatter";
 
 export function MyPublicationsView() {
   const [search, setSearch] = useState("");
@@ -289,12 +290,39 @@ export function MyPublicationsView() {
               </div>
 
               <div className="pt-4 mt-3 border-t border-border/60 space-y-2 text-xs">
-                {/* Authors Line */}
-                <div className="flex items-center gap-1.5 text-muted-foreground truncate">
-                  <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="truncate">
-                    {(pub.authors || []).map((a) => a.authorName).join(", ") || "Unknown Authors"}
-                  </span>
+                {/* Authors Line with Main vs Co-Author Roles */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    {(() => {
+                      const roles = parseAuthorRoles(pub.authors);
+                      if (roles.length === 0) return <span className="text-muted-foreground text-xs">Unknown Authors</span>;
+
+                      const mainAuthor = roles.find((r) => r.isMainAuthor);
+                      const corresponding = roles.find((r) => r.isCorresponding && !r.isMainAuthor);
+                      const coAuthorsCount = roles.filter((r) => !r.isMainAuthor).length;
+
+                      return (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {mainAuthor && (
+                            <Badge className="bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 border-amber-500/30 text-[10px] py-0 px-1.5 font-bold gap-1">
+                              ⭐ Main: {mainAuthor.authorName}
+                            </Badge>
+                          )}
+                          {corresponding && (
+                            <Badge className="bg-blue-500/15 text-blue-700 hover:bg-blue-500/20 border-blue-500/30 text-[10px] py-0 px-1.5 font-semibold gap-1">
+                              ✉️ {corresponding.authorName}
+                            </Badge>
+                          )}
+                          {coAuthorsCount > 0 && (
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              +{coAuthorsCount} Co-Author{coAuthorsCount > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 {/* Venue / Citation Stats */}

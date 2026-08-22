@@ -149,16 +149,25 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
                 return (
                   <div key={idx} className="rounded-lg border border-border/80 bg-muted/30 p-3 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-bold text-foreground">{author.authorName}</span>
+                        {(author.authorOrder === 1 || idx === 0) ? (
+                          <Badge className="text-[9px] bg-amber-500/15 text-amber-700 border-amber-500/30 font-bold gap-1">
+                            ⭐ Main Author (1st Author)
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] text-slate-600 bg-slate-100 border-slate-200 font-medium">
+                            Co-Author (#{author.authorOrder || idx + 1})
+                          </Badge>
+                        )}
                         {author.isCorresponding && (
-                          <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary border-primary/20">
-                            Corresponding
+                          <Badge variant="secondary" className="text-[9px] bg-blue-500/15 text-blue-700 border-blue-500/30 font-bold gap-1">
+                            ✉️ Corresponding Author
                           </Badge>
                         )}
                         {author.faculty && (
                           <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-500/30 bg-emerald-500/5">
-                            Verified Faculty
+                            ✓ Verified Faculty
                           </Badge>
                         )}
                       </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus, Search, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Eye, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Search, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Eye, ExternalLink, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { useResearchList } from "../hooks/useResearch";
 import { ResearchSubmissionModal } from "./ResearchSubmissionModal";
 import { ResearchDetailModal } from "./ResearchDetailModal";
 import type { ResearchItem, ResearchStatusType } from "@/services/research.service";
+import { parseAuthorRoles } from "@/utils/authorFormatter";
 
 export function ResearchListView() {
   const [search, setSearch] = useState("");
@@ -143,8 +144,41 @@ export function ResearchListView() {
                   {item.abstract}
                 </p>
 
+                {/* Authors Line with Main vs Co-Author Roles */}
+                <div className="mt-3 flex items-center gap-1.5 flex-wrap text-xs">
+                  <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  {(() => {
+                    const roles = parseAuthorRoles(item.authors);
+                    if (roles.length === 0) return <span className="text-muted-foreground text-xs">Unknown Authors</span>;
+
+                    const mainAuthor = roles.find((r) => r.isMainAuthor);
+                    const corresponding = roles.find((r) => r.isCorresponding && !r.isMainAuthor);
+                    const coAuthorsCount = roles.filter((r) => !r.isMainAuthor).length;
+
+                    return (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {mainAuthor && (
+                          <Badge className="bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 border-amber-500/30 text-[10px] py-0 px-1.5 font-bold gap-1">
+                            ⭐ Main: {mainAuthor.authorName}
+                          </Badge>
+                        )}
+                        {corresponding && (
+                          <Badge className="bg-blue-500/15 text-blue-700 hover:bg-blue-500/20 border-blue-500/30 text-[10px] py-0 px-1.5 font-semibold gap-1">
+                            ✉️ {corresponding.authorName}
+                          </Badge>
+                        )}
+                        {coAuthorsCount > 0 && (
+                          <span className="text-[11px] text-muted-foreground font-medium">
+                            +{coAuthorsCount} Co-Author{coAuthorsCount > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 {item.doi && (
-                  <div className="mt-3 flex items-center gap-1 text-[11px] text-primary font-mono truncate">
+                  <div className="mt-2.5 flex items-center gap-1 text-[11px] text-primary font-mono truncate">
                     <ExternalLink className="h-3 w-3 shrink-0" />
                     <span className="truncate">{item.doi}</span>
                   </div>
