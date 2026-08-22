@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,16 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
   const [isSavingAffiliation, setIsSavingAffiliation] = useState(false);
   const [authorsList, setAuthorsList] = useState<ResearchAuthorItem[]>([]);
 
-  // Initialize authors list when research modal opens
-  if (research && authorsList.length === 0 && research.authors && research.authors.length > 0) {
-    setAuthorsList(research.authors);
-  }
+  // Re-initialize authors list whenever selected research paper changes
+  useEffect(() => {
+    if (research && research.authors) {
+      const sorted = [...research.authors].sort((a, b) => (a.authorOrder || 1) - (b.authorOrder || 1));
+      setAuthorsList(sorted);
+      setEditingAuthorId(null);
+    } else {
+      setAuthorsList([]);
+    }
+  }, [research?.id]);
 
   if (!research) return null;
 
