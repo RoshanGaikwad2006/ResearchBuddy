@@ -98,6 +98,7 @@ export interface ResearchIdentityResponse {
   orcid?: string;
   scopusAuthorId?: string;
   scopusUrl?: string;
+  googleDriveFolderUrl?: string;
   researcherId?: string;
   otherResearcherId?: string;
   institutionalAffiliation: string;
@@ -140,6 +141,7 @@ export const updateMyResearchIdentity = async (data: {
   orcidInput?: string | undefined;
   scopusInput?: string | undefined;
   researcherId?: string | undefined;
+  googleDriveFolderUrl?: string | undefined;
   otherResearcherId?: string | undefined;
   institutionalAffiliation?: string | undefined;
   researchInterests?: string[] | undefined;

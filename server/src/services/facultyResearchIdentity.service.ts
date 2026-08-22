@@ -25,6 +25,7 @@ export interface ResearchIdentityDTO {
   orcid?: string;
   scopusAuthorId?: string;
   scopusUrl?: string;
+  googleDriveFolderUrl?: string;
   researcherId?: string;
   otherResearcherId?: string;
   institutionalAffiliation: string;
@@ -284,6 +285,7 @@ export class FacultyResearchIdentityService {
       orcid: faculty.orcid || undefined,
       scopusAuthorId: faculty.scopusAuthorId || undefined,
       scopusUrl: faculty.scopusUrl || (faculty.scopusAuthorId ? `https://www.scopus.com/authid/detail.uri?authorId=${faculty.scopusAuthorId}` : undefined),
+      googleDriveFolderUrl: faculty.googleDriveFolderUrl || undefined,
       researcherId: faculty.researcherId || undefined,
       otherResearcherId: faculty.otherResearcherId || undefined,
       institutionalAffiliation:
@@ -327,6 +329,7 @@ export class FacultyResearchIdentityService {
       scholarInput?: string;
       orcidInput?: string;
       scopusInput?: string;
+      googleDriveFolderUrl?: string;
       researcherId?: string;
       otherResearcherId?: string;
       institutionalAffiliation?: string;
@@ -357,6 +360,7 @@ export class FacultyResearchIdentityService {
       updateData.scopusAuthorId = scopusParsed.scopusAuthorId || null;
     }
 
+    if (data.googleDriveFolderUrl !== undefined) updateData.googleDriveFolderUrl = data.googleDriveFolderUrl || null;
     if (data.researcherId !== undefined) updateData.researcherId = data.researcherId || null;
     if (data.otherResearcherId !== undefined) updateData.otherResearcherId = data.otherResearcherId || null;
     if (data.institutionalAffiliation !== undefined) updateData.institutionalAffiliation = data.institutionalAffiliation;

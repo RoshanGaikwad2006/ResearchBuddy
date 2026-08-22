@@ -8,8 +8,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X } from "lucide-react";
+import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X, FolderGit2 } from "lucide-react";
 import type { ResearchItem, ResearchAuthorItem } from "@/services/research.service";
+import { updateResearchApi } from "@/services/research.service";
 import { updateAuthorAffiliationApi } from "@/services/faculty.service";
 import { getGoogleScholarUrl } from "@/utils/scholarLink";
 
@@ -25,12 +26,19 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
   const [isSavingAffiliation, setIsSavingAffiliation] = useState(false);
   const [authorsList, setAuthorsList] = useState<ResearchAuthorItem[]>([]);
 
-  // Re-initialize authors list whenever selected research paper changes
+  // Manuscript PDF / Google Drive URL state
+  const [isEditingPdfUrl, setIsEditingPdfUrl] = useState(false);
+  const [pdfUrlInput, setPdfUrlInput] = useState<string>("");
+  const [isSavingPdfUrl, setIsSavingPdfUrl] = useState(false);
+
+  // Re-initialize state whenever selected research paper changes
   useEffect(() => {
     if (research && research.authors) {
       const sorted = [...research.authors].sort((a, b) => (a.authorOrder || 1) - (b.authorOrder || 1));
       setAuthorsList(sorted);
       setEditingAuthorId(null);
+      setPdfUrlInput(research.pdfUrl || "");
+      setIsEditingPdfUrl(false);
     } else {
       setAuthorsList([]);
     }
@@ -369,6 +377,83 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* MANUSCRIPT PDF & GOOGLE DRIVE STORAGE VAULT CARD */}
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                <FileText className="h-4 w-4 text-blue-600" /> Manuscript PDF / Google Drive Storage
+              </div>
+              {!isEditingPdfUrl && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPdfUrlInput(research.pdfUrl || "");
+                    setIsEditingPdfUrl(true);
+                  }}
+                  className="h-6 px-2 text-[10px] text-blue-700 hover:bg-blue-500/10 gap-1 font-bold"
+                >
+                  <Pencil className="h-3 w-3" /> {research.pdfUrl ? "Edit PDF Link" : "+ Attach Google Drive PDF Link"}
+                </Button>
+              )}
+            </div>
+
+            {isEditingPdfUrl ? (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Paste your Google Drive PDF view link (e.g. <code>https://drive.google.com/file/d/.../view</code>) for this paper:
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={pdfUrlInput}
+                    onChange={(e) => setPdfUrlInput(e.target.value)}
+                    placeholder="https://drive.google.com/file/d/.../view"
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        setIsSavingPdfUrl(true);
+                        await updateResearchApi(research.id, { pdfUrl: pdfUrlInput.trim() || null });
+                        research.pdfUrl = pdfUrlInput.trim() || null;
+                        setIsEditingPdfUrl(false);
+                      } catch (err: any) {
+                        alert(err.message || "Failed to update manuscript PDF link");
+                      } finally {
+                        setIsSavingPdfUrl(false);
+                      }
+                    }}
+                    disabled={isSavingPdfUrl}
+                    className="h-8 px-3 text-xs gap-1 shrink-0"
+                  >
+                    <Check className="h-3.5 w-3.5" /> {isSavingPdfUrl ? "Saving..." : "Save"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setIsEditingPdfUrl(false)} className="h-8 px-3 text-xs shrink-0">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-xs">
+                {research.pdfUrl ? (
+                  <a
+                    href={research.pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1.5"
+                  >
+                    📄 View / Download Manuscript PDF (Google Drive) <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground italic text-xs">
+                    No manuscript PDF attached yet. Click "+ Attach Google Drive PDF Link" to link your paper.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* External Links */}

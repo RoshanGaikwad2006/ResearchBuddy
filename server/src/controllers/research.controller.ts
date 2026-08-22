@@ -51,13 +51,29 @@ export const createResearch = async (req: AuthenticatedRequest, res: Response): 
 export const updateResearch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = getParamId(req.params.id);
-    const current = await ResearchService.getById(id);
+    const current = await prisma.research.findUnique({
+      where: { id },
+      include: {
+        authors: {
+          include: {
+            faculty: true,
+          },
+        },
+      },
+    });
 
-    if (
-      req.user?.role !== "ADMIN" &&
-      req.user?.role !== "RESEARCH_CELL" &&
-      current.createdById !== req.user?.id
-    ) {
+    if (!current) {
+      res.status(404).json({ message: "Research publication not found" });
+      return;
+    }
+
+    const isAuthor = current.authors.some((a) => a.faculty?.userId === req.user?.id);
+    const isCreatorOrAdmin =
+      current.createdById === req.user?.id ||
+      req.user?.role === "ADMIN" ||
+      req.user?.role === "RESEARCH_CELL";
+
+    if (!isAuthor && !isCreatorOrAdmin) {
       res.status(403).json({ message: "You are not authorized to update this Research publication" });
       return;
     }

@@ -42,6 +42,7 @@ export function FacultyProfileCard() {
   const [orcidInput, setOrcidInput] = useState("");
   const [scopusInput, setScopusInput] = useState("");
   const [researcherId, setResearcherId] = useState("");
+  const [driveFolderInput, setDriveFolderInput] = useState("");
   const [interestsText, setInterestsText] = useState("");
   const [affiliationInput, setAffiliationInput] = useState("");
 
@@ -75,6 +76,7 @@ export function FacultyProfileCard() {
       setOrcidInput(identity.orcid || "");
       setScopusInput(identity.scopusUrl || identity.scopusAuthorId || "");
       setResearcherId(identity.researcherId || "");
+      setDriveFolderInput(identity.googleDriveFolderUrl || "");
       setInterestsText((identity.researchInterests || []).join(", "));
       setAffiliationInput(identity.institutionalAffiliation || "");
     }
@@ -94,6 +96,7 @@ export function FacultyProfileCard() {
         orcidInput: orcidInput || undefined,
         scopusInput: scopusInput || undefined,
         researcherId: researcherId || undefined,
+        googleDriveFolderUrl: driveFolderInput || undefined,
         institutionalAffiliation: affiliationInput || undefined,
         researchInterests,
       });
@@ -322,6 +325,17 @@ export function FacultyProfileCard() {
               <div>
                 <Label className="text-xs text-[#102A43] font-semibold">ResearcherID / Clarivate ID</Label>
                 <Input value={researcherId} onChange={(e) => setResearcherId(e.target.value)} placeholder="A-1234-2025" className="mt-1 text-xs" />
+              </div>
+              <div>
+                <Label className="text-xs text-[#102A43] font-semibold flex items-center gap-1">
+                  📁 Google Drive Research Vault Folder Link
+                </Label>
+                <Input
+                  value={driveFolderInput}
+                  onChange={(e) => setDriveFolderInput(e.target.value)}
+                  placeholder="https://drive.google.com/drive/folders/1a2b3c..."
+                  className="mt-1 text-xs font-mono"
+                />
               </div>
               <div>
                 <Label className="text-xs text-[#102A43] font-semibold">Institutional Affiliation</Label>
