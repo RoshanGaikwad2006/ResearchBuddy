@@ -16,6 +16,7 @@ import {
   ArrowUpDown,
   Download,
   CheckCircle2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,13 +44,19 @@ import type { ReportFilterPayload } from "@/services/report.service";
 
 const ALL_AVAILABLE_COLUMNS = [
   { key: "slNo", label: "Sl. No." },
+  { key: "facultyName", label: "Faculty Name" },
+  { key: "employeeId", label: "Employee ID" },
+  { key: "department", label: "Department" },
+  { key: "hIndex", label: "Scholar h-index" },
+  { key: "i10Index", label: "Scholar i10-index" },
+  { key: "totalCitations", label: "Scholar Citations" },
+  { key: "publicationCount", label: "Total Publications" },
+  { key: "scholarUrl", label: "Google Scholar Profile URL" },
+  { key: "email", label: "Faculty Email" },
   { key: "title", label: "Paper Title & Abstract" },
   { key: "authors", label: "All Authors" },
   { key: "primaryAuthor", label: "Primary Author" },
   { key: "coAuthors", label: "Co-Author(s)" },
-  { key: "facultyName", label: "Faculty Name" },
-  { key: "employeeId", label: "Employee ID" },
-  { key: "department", label: "Department" },
   { key: "journal", label: "Journal / Conference" },
   { key: "publicationYear", label: "Publication Year" },
   { key: "abstract", label: "Paper Abstract" },
@@ -58,6 +65,30 @@ const ALL_AVAILABLE_COLUMNS = [
   { key: "doi", label: "DOI Handle" },
   { key: "researchArea", label: "Research Area" },
   { key: "status", label: "Publication Status" },
+  { key: "lastSyncTime", label: "Last Synced Date" },
+];
+
+const FACULTY_TOTALS_COLUMNS = [
+  "facultyName",
+  "employeeId",
+  "department",
+  "publicationCount",
+  "totalCitations",
+  "hIndex",
+  "i10Index",
+  "scholarUrl",
+  "email",
+];
+
+const PAPER_WISE_COLUMNS = [
+  "title",
+  "authors",
+  "department",
+  "journal",
+  "publicationYear",
+  "citationCount",
+  "status",
+  "doi",
 ];
 
 export function ReportBuilderView() {
@@ -73,7 +104,8 @@ export function ReportBuilderView() {
   const facultyMembers = facultyRes?.items || (facultyRes as any)?.faculties || [];
 
   // Filter Payload State
-  const [reportType, setReportType] = useState<string>("INSTITUTIONAL");
+  const [viewMode, setViewMode] = useState<"FACULTY_TOTALS" | "PAPER_WISE">("FACULTY_TOTALS");
+  const [reportType, setReportType] = useState<string>("FACULTY_PUBLICATION");
   const [departmentId, setDepartmentId] = useState<string>("ALL");
   const [facultyId, setFacultyId] = useState<string>("ALL");
   const [yearStart, setYearStart] = useState<string>("");
@@ -83,20 +115,22 @@ export function ReportBuilderView() {
   const [journalOrConference, setJournalOrConference] = useState<"JOURNAL" | "CONFERENCE" | "ALL">("ALL");
   const [citationMin, setCitationMin] = useState<string>("0");
   const [search, setSearch] = useState<string>("");
-  const [grouping, setGrouping] = useState<"department" | "year" | "status" | "none">("none");
-  const [sorting, setSorting] = useState<"year_desc" | "year_asc" | "citations_desc" | "citations_asc" | "title_asc">("year_desc");
+  const [grouping, setGrouping] = useState<"department" | "year" | "status" | "faculty" | "none">("none");
+  const [sorting, setSorting] = useState<
+    | "year_desc"
+    | "year_asc"
+    | "citations_desc"
+    | "citations_asc"
+    | "title_asc"
+    | "hindex_desc"
+    | "hindex_asc"
+    | "i10_desc"
+    | "i10_asc"
+    | "publications_desc"
+  >("hindex_desc");
 
   // Columns Selected
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([
-    "title",
-    "authors",
-    "department",
-    "journal",
-    "publicationYear",
-    "citationCount",
-    "status",
-    "doi",
-  ]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(FACULTY_TOTALS_COLUMNS);
 
   // Saved Config Modal
   const [saveName, setSaveName] = useState("");
@@ -104,15 +138,16 @@ export function ReportBuilderView() {
 
   // Selected Template Object
   const currentTemplate = templates.find((t) => t.id === reportType) || {
-    id: "INSTITUTIONAL",
-    title: "Comprehensive Institutional Research Report",
-    category: "Institutional",
-    description: "Full institutional research portfolio across departments.",
+    id: "FACULTY_PUBLICATION",
+    title: "Faculty-Wise Research & Scholar Totals Report",
+    category: "Faculty Summary",
+    description: "Total for each faculty member: Total publications, total citations, h-index, i10-index, and Google Scholar profile metrics (not paper-wise).",
   };
 
   // Payload for Query Preview
   const payload: ReportFilterPayload = {
     reportType,
+    viewMode,
     reportTitle: currentTemplate.title,
     departmentId: departmentId !== "ALL" ? departmentId : undefined,
     facultyId: facultyId !== "ALL" ? facultyId : undefined,
@@ -142,6 +177,21 @@ export function ReportBuilderView() {
   const savedReportsList = savedRes?.reports || [];
   const historyList = historyRes?.history || [];
 
+  // Switch modes between Faculty Totals and Paper-Wise
+  const switchToFacultyTotalsMode = () => {
+    setViewMode("FACULTY_TOTALS");
+    setReportType("FACULTY_PUBLICATION");
+    setSelectedColumns(FACULTY_TOTALS_COLUMNS);
+    setSorting("hindex_desc");
+  };
+
+  const switchToPaperWiseMode = () => {
+    setViewMode("PAPER_WISE");
+    setReportType("INSTITUTIONAL");
+    setSelectedColumns(PAPER_WISE_COLUMNS);
+    setSorting("year_desc");
+  };
+
   // Toggle Column Selection
   const toggleColumn = (key: string) => {
     if (selectedColumns.includes(key)) {
@@ -158,14 +208,28 @@ export function ReportBuilderView() {
   };
 
   const clearAllColumns = () => {
-    setSelectedColumns(["title", "authors", "citationCount"]);
+    if (viewMode === "FACULTY_TOTALS") {
+      setSelectedColumns(["facultyName", "publicationCount", "totalCitations", "hIndex"]);
+    } else {
+      setSelectedColumns(["title", "authors", "citationCount"]);
+    }
   };
 
   const handleSelectTemplate = (tId: string) => {
     setReportType(tId);
-    const tmpl = templates.find((t) => t.id === tId);
-    if (tmpl && tmpl.defaultColumns) {
-      setSelectedColumns(tmpl.defaultColumns);
+    if (tId === "FACULTY_PUBLICATION" || tId === "SCHOLAR_RESEARCHER") {
+      setViewMode("FACULTY_TOTALS");
+      setSelectedColumns(FACULTY_TOTALS_COLUMNS);
+      setSorting("hindex_desc");
+    } else {
+      setViewMode("PAPER_WISE");
+      const tmpl = templates.find((t) => t.id === tId);
+      if (tmpl && tmpl.defaultColumns) {
+        setSelectedColumns(tmpl.defaultColumns);
+      } else {
+        setSelectedColumns(PAPER_WISE_COLUMNS);
+      }
+      setSorting("year_desc");
     }
   };
 
@@ -264,7 +328,58 @@ export function ReportBuilderView() {
 
       {/* TAB 1: REPORT BUILDER */}
       {activeTab === "builder" && (
-        <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6">
+          {/* REPORT GRANULARITY & MODE TOGGLE */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 shadow-soft">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-0.5">
+                  Report Granularity
+                </Badge>
+                <span className="text-sm font-bold text-foreground">
+                  {viewMode === "FACULTY_TOTALS"
+                    ? "👥 Faculty-Wise Summary (Total for Each Faculty)"
+                    : "📄 Paper-Wise Detailed (Individual Manuscripts)"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {viewMode === "FACULTY_TOTALS"
+                  ? "Displays 1 row per faculty member with their total publications, total citations, Scholar h-index, and i10-index."
+                  : "Displays individual research paper manuscripts, authors, journals, DOIs, and citation counts."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm border border-border rounded-xl p-1.5 shadow-sm self-start sm:self-auto">
+              <Button
+                type="button"
+                size="sm"
+                variant={viewMode === "FACULTY_TOTALS" ? "default" : "ghost"}
+                onClick={switchToFacultyTotalsMode}
+                className={`text-xs h-8 gap-1.5 px-4 font-semibold transition-all ${
+                  viewMode === "FACULTY_TOTALS"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" /> Total for Each Faculty
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={viewMode === "PAPER_WISE" ? "default" : "ghost"}
+                onClick={switchToPaperWiseMode}
+                className={`text-xs h-8 gap-1.5 px-4 font-semibold transition-all ${
+                  viewMode === "PAPER_WISE"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" /> Paper-Wise Detailed
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-12">
           {/* LEFT SIDEBAR: FILTERS & CONFIGURATION (4 COLS) */}
           <div className="lg:col-span-4 space-y-5">
             {/* Template Selector Card */}
@@ -291,6 +406,22 @@ export function ReportBuilderView() {
                   {currentTemplate.title} ({currentTemplate.category})
                 </span>
                 {currentTemplate.description}
+              </div>
+
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={reportType === "SCHOLAR_RESEARCHER" ? "default" : "outline"}
+                  onClick={() => handleSelectTemplate("SCHOLAR_RESEARCHER")}
+                  className={`w-full text-xs font-semibold gap-1.5 h-8.5 transition-all ${
+                    reportType === "SCHOLAR_RESEARCHER"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm ring-2 ring-blue-500/20"
+                      : "border-blue-500/30 text-blue-600 hover:bg-blue-500/10 dark:text-blue-400"
+                  }`}
+                >
+                  🎓 Faculty Google Scholar Report (h-index & i10)
+                </Button>
               </div>
             </div>
 
@@ -508,12 +639,21 @@ export function ReportBuilderView() {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="space-y-1">
                   <Label className="text-xs">Group By</Label>
-                  <Select value={grouping} onValueChange={(v: any) => setGrouping(v)}>
+                  <Select
+                    value={grouping}
+                    onValueChange={(v: any) => {
+                      setGrouping(v);
+                      if (v === "faculty") {
+                        switchToFacultyTotalsMode();
+                      }
+                    }}
+                  >
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue placeholder="No Grouping" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No Grouping</SelectItem>
+                      <SelectItem value="faculty">Faculty Member (Total for each faculty)</SelectItem>
                       <SelectItem value="department">Department</SelectItem>
                       <SelectItem value="year">Publication Year</SelectItem>
                     </SelectContent>
@@ -527,10 +667,14 @@ export function ReportBuilderView() {
                       <SelectValue placeholder="Year (Newest)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="hindex_desc">h-index (Highest First)</SelectItem>
+                      <SelectItem value="hindex_asc">h-index (Lowest First)</SelectItem>
+                      <SelectItem value="i10_desc">i10-index (Highest First)</SelectItem>
+                      <SelectItem value="citations_desc">Citations (Highest First)</SelectItem>
+                      <SelectItem value="publications_desc">Publications (Highest First)</SelectItem>
                       <SelectItem value="year_desc">Year (Newest First)</SelectItem>
                       <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
-                      <SelectItem value="citations_desc">Citations (Highest)</SelectItem>
-                      <SelectItem value="title_asc">Title (A-Z)</SelectItem>
+                      <SelectItem value="title_asc">Name / Title (A-Z)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -693,7 +837,8 @@ export function ReportBuilderView() {
             <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
               <div className="border-b border-border bg-muted/30 px-5 py-3.5 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                  Data Preview ({previewData ? previewData.records.length : 0} of {previewData ? previewData.total : 0} Records)
+                  Data Preview ({previewData ? previewData.records.length : 0} of {previewData ? previewData.total : 0}{" "}
+                  {viewMode === "FACULTY_TOTALS" ? "Faculty Members — Totals Summary" : "Research Papers — Detailed Manuscripts"})
                 </span>
                 {isPreviewLoading && <RefreshCw className="h-4 w-4 animate-spin text-primary" />}
               </div>
@@ -705,8 +850,12 @@ export function ReportBuilderView() {
               ) : !previewData || previewData.records.length === 0 ? (
                 <div className="p-10 text-center text-muted-foreground">
                   <BookOpen className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm font-medium">No Research Papers Match Filter Criteria</p>
-                  <p className="text-xs text-muted-foreground mt-1">Try broadening your year range or status filters.</p>
+                  <p className="text-sm font-medium">
+                    {viewMode === "FACULTY_TOTALS" ? "No Faculty Members Match Filter Criteria" : "No Research Papers Match Filter Criteria"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {viewMode === "FACULTY_TOTALS" ? "Try selecting All Departments or clearing the search keyword." : "Try broadening your year range or status filters."}
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -733,6 +882,47 @@ export function ReportBuilderView() {
                                 {col.key === "status" ? (
                                   <Badge variant="outline" className="text-[10px] font-semibold py-0.5">
                                     {row[col.key]}
+                                  </Badge>
+                                ) : col.key === "hIndex" ? (
+                                  <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold py-0.5 px-2">
+                                    h: {row[col.key] ?? 0}
+                                  </Badge>
+                                ) : col.key === "i10Index" ? (
+                                  <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-[11px] font-bold py-0.5 px-2">
+                                    i10: {row[col.key] ?? 0}
+                                  </Badge>
+                                ) : col.key === "totalCitations" ? (
+                                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                                    🎓 {row[col.key] ?? 0}
+                                  </span>
+                                ) : col.key === "publicationCount" ? (
+                                  <span className="font-semibold text-foreground">
+                                    📄 {row[col.key] ?? 0}
+                                  </span>
+                                ) : col.key === "scholarUrl" ? (
+                                  row[col.key] && row[col.key] !== "N/A" ? (
+                                    <a
+                                      href={row[col.key]}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline font-medium inline-flex items-center gap-1 text-xs truncate max-w-[180px]"
+                                      title={row[col.key]}
+                                    >
+                                      <span>Scholar Profile</span>
+                                      <span className="text-[10px]">↗</span>
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )
+                                ) : col.key === "facultyName" ? (
+                                  <span className="font-semibold text-foreground">{row[col.key] || "—"}</span>
+                                ) : col.key === "employeeId" ? (
+                                  <span className="font-mono text-[11px] text-muted-foreground">{row[col.key] || "—"}</span>
+                                ) : col.key === "email" ? (
+                                  <span className="text-muted-foreground text-xs">{row[col.key] || "—"}</span>
+                                ) : col.key === "lastSyncTime" ? (
+                                  <Badge variant="outline" className="text-[10px] bg-muted/40 text-muted-foreground">
+                                    {row[col.key] || "—"}
                                   </Badge>
                                 ) : col.key === "citationCount" ? (
                                   <span className="font-bold text-amber-600 dark:text-amber-400">🎓 {row[col.key]}</span>
@@ -776,7 +966,8 @@ export function ReportBuilderView() {
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* TAB 2: SAVED CONFIGURATIONS */}
       {activeTab === "saved" && (

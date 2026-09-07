@@ -70,6 +70,41 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    if (user.role === "FACULTY") {
+      try {
+        const cleanName = validatedData.name.replace(/^Dr\.\s*/i, "").trim();
+        const unclaimedFaculty = await prisma.faculty.findFirst({
+          where: {
+            OR: [
+              { otherResearcherId: `PREV_EMAIL:${validatedData.email}` },
+              {
+                user: {
+                  email: { startsWith: "unclaimed_" },
+                  name: { contains: cleanName, mode: "insensitive" },
+                },
+              },
+            ],
+          },
+        });
+
+        if (unclaimedFaculty) {
+          const oldPlaceholderUserId = unclaimedFaculty.userId;
+          await prisma.faculty.update({
+            where: { id: unclaimedFaculty.id },
+            data: {
+              userId: user.id,
+              otherResearcherId: null,
+            },
+          });
+          await prisma.user.delete({
+            where: { id: oldPlaceholderUserId },
+          }).catch(() => {});
+        }
+      } catch (linkError) {
+        console.warn("Notice: Auto-claiming faculty profile skipped or errored:", linkError);
+      }
+    }
+
     const token = generateToken({ id: user.id, email: user.email, role: user.role });
 
     res.status(201).json({

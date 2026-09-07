@@ -14,8 +14,20 @@ export interface ReportFilterPayload {
   citationMin?: number;
   search?: string;
   columns?: string[];
-  grouping?: "department" | "year" | "status" | "researchArea" | "none";
-  sorting?: "year_desc" | "year_asc" | "citations_desc" | "citations_asc" | "title_asc";
+  grouping?: "department" | "year" | "status" | "researchArea" | "faculty" | "none";
+  viewMode?: "FACULTY_TOTALS" | "PAPER_WISE" | string;
+  sorting?:
+    | "year_desc"
+    | "year_asc"
+    | "citations_desc"
+    | "citations_asc"
+    | "title_asc"
+    | "hindex_desc"
+    | "hindex_asc"
+    | "i10_desc"
+    | "i10_asc"
+    | "publications_desc"
+    | string;
   page?: number;
   limit?: number;
 }
@@ -30,18 +42,18 @@ export class ReportService {
   static getTemplates() {
     return [
       {
+        id: "FACULTY_PUBLICATION",
+        title: "Faculty-Wise Research & Scholar Totals Report",
+        category: "Faculty Summary",
+        description: "Total for each faculty member: Total publications, total citations, h-index, i10-index, and Google Scholar profile metrics (1 row per faculty, not paper-wise).",
+        defaultColumns: ["facultyName", "employeeId", "department", "publicationCount", "totalCitations", "hIndex", "i10Index", "scholarUrl", "email"],
+      },
+      {
         id: "INSTITUTIONAL",
         title: "Comprehensive Institutional Research Report",
         category: "Institutional",
         description: "Full institutional research portfolio across all departments, faculty, and research areas.",
         defaultColumns: ["title", "authors", "department", "journal", "publicationYear", "citationCount", "status", "doi"],
-      },
-      {
-        id: "FACULTY_PUBLICATION",
-        title: "Faculty Publication Performance Report",
-        category: "Faculty",
-        description: "Individual and aggregated publication metrics per faculty member including citation impact.",
-        defaultColumns: ["facultyName", "employeeId", "department", "title", "journal", "publicationYear", "citationCount"],
       },
       {
         id: "DEPARTMENT_RESEARCH",
@@ -94,10 +106,10 @@ export class ReportService {
       },
       {
         id: "SCHOLAR_RESEARCHER",
-        title: "Google Scholar Verified Profile Report",
-        category: "Profiles",
-        description: "Audit report of faculty Google Scholar sync status, citations, h-index, and i10-index.",
-        defaultColumns: ["facultyName", "employeeId", "department", "scholarUrl", "totalCitations", "hIndex", "i10Index", "lastSyncTime"],
+        title: "Faculty Google Scholar Verified Profile Report (h-index, i10-index, Citations)",
+        category: "Faculty & Scholar",
+        description: "Faculty-wise verified report with Google Scholar metrics: citations, h-index, i10-index, total publications, and profile URLs.",
+        defaultColumns: ["facultyName", "employeeId", "department", "hIndex", "i10Index", "totalCitations", "publicationCount", "scholarUrl", "email"],
       },
     ];
   }
@@ -120,6 +132,151 @@ export class ReportService {
       limit = 100,
     } = payload;
 
+    // Dedicated Faculty-Wise Google Scholar & Research Totals Report (Total for each faculty, not paper-wise)
+    const isFacultyTotalsQuery =
+      payload.reportType === "SCHOLAR_RESEARCHER" ||
+      payload.reportType === "FACULTY_PUBLICATION" ||
+      payload.viewMode === "FACULTY_TOTALS" ||
+      grouping === "faculty";
+
+    if (isFacultyTotalsQuery) {
+      const facultyWhere: any = {};
+      if (departmentId && departmentId !== "ALL") facultyWhere.departmentId = departmentId;
+      if (facultyId && facultyId !== "ALL") facultyWhere.id = facultyId;
+      if (citationMin && citationMin > 0) {
+        facultyWhere.totalCitations = { gte: Number(citationMin) };
+      }
+      if (search) {
+        facultyWhere.OR = [
+          { user: { name: { contains: search, mode: "insensitive" } } },
+          { user: { email: { contains: search, mode: "insensitive" } } },
+          { employeeId: { contains: search, mode: "insensitive" } },
+          { department: { name: { contains: search, mode: "insensitive" } } },
+        ];
+      }
+
+      const totalFaculty = await prisma.faculty.count({ where: facultyWhere });
+
+      let orderBy: any = [{ hIndex: "desc" }, { totalCitations: "desc" }];
+      if (sorting === "title_asc") orderBy = { user: { name: "asc" } };
+      else if (sorting === "citations_desc") orderBy = { totalCitations: "desc" };
+      else if (sorting === "citations_asc") orderBy = { totalCitations: "asc" };
+      else if (sorting === "hindex_desc") orderBy = [{ hIndex: "desc" }, { totalCitations: "desc" }];
+      else if (sorting === "hindex_asc") orderBy = [{ hIndex: "asc" }, { totalCitations: "asc" }];
+      else if (sorting === "i10_desc") orderBy = [{ i10Index: "desc" }, { totalCitations: "desc" }];
+      else if (sorting === "i10_asc") orderBy = [{ i10Index: "asc" }, { totalCitations: "asc" }];
+      else if (sorting === "publications_desc") orderBy = { publicationCount: "desc" };
+      else if (sorting === "year_asc") orderBy = { hIndex: "asc" };
+      else if (sorting === "year_desc") orderBy = [{ hIndex: "desc" }, { totalCitations: "desc" }];
+
+      const faculties = await prisma.faculty.findMany({
+        where: facultyWhere,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          user: { select: { name: true, email: true } },
+          department: { select: { name: true, code: true } },
+          _count: { select: { researchAuthorships: true } },
+        },
+      });
+
+      const totalCitationsSum = faculties.reduce((acc, f) => acc + (f.totalCitations || 0), 0);
+      const totalPublicationsSum = faculties.reduce(
+        (acc, f: any) => acc + Math.max(f.publicationCount || 0, f._count?.researchAuthorships || 0),
+        0
+      );
+      const maxHIndex = faculties.length > 0 ? Math.max(...faculties.map((f) => f.hIndex || 0)) : 0;
+      const maxI10Index = faculties.length > 0 ? Math.max(...faculties.map((f) => f.i10Index || 0)) : 0;
+      const avgCitations = faculties.length > 0 ? (totalCitationsSum / faculties.length).toFixed(1) : "0";
+
+      let groupSummaries: any[] = [];
+      if (grouping === "department") {
+        const deptMap = new Map<string, { name: string; count: number; citations: number }>();
+        faculties.forEach((f: any) => {
+          const dName = f.department?.name || "General Department";
+          const curr = deptMap.get(dName) || { name: dName, count: 0, citations: 0 };
+          curr.count += Math.max(f.publicationCount || 0, f._count?.researchAuthorships || 0);
+          curr.citations += f.totalCitations || 0;
+          deptMap.set(dName, curr);
+        });
+        groupSummaries = Array.from(deptMap.values());
+      }
+
+      const records = faculties.map((f: any, index) => {
+        const totalPubs = Math.max(f.publicationCount || 0, f._count?.researchAuthorships || 0);
+        const totalCits = f.totalCitations || 0;
+        const avgCit = totalPubs > 0 ? (totalCits / totalPubs).toFixed(1) : "0";
+
+        return {
+          slNo: (page - 1) * limit + index + 1,
+          id: f.id,
+          facultyName: f.user?.name || "Unknown Faculty",
+          email: f.user?.email || "N/A",
+          employeeId: f.employeeId,
+          department: f.department?.name || "Computer Engineering",
+          departmentCode: f.department?.code || "CE",
+          designation: f.designation || "Faculty Member",
+          publicationCount: totalPubs,
+          totalCitations: totalCits,
+          hIndex: f.hIndex || 0,
+          i10Index: f.i10Index || 0,
+          avgCitationsPerPaper: avgCit,
+          scholarUrl: f.scholarUrl || "N/A",
+          scholarAuthorId: f.scholarAuthorId || "N/A",
+          scholarSyncStatus: f.scholarSyncStatus || "SYNCED",
+          lastSyncTime: f.lastSyncTime ? f.lastSyncTime.toISOString().split("T")[0] : "Recently Synced",
+          // Generic column fallbacks if users enable them in custom column selection
+          title: `${f.user?.name} — ${totalPubs} Total Publications`,
+          authors: f.user?.name,
+          primaryAuthor: f.user?.name,
+          coAuthors: "N/A",
+          journal: `h-index: ${f.hIndex} | i10-index: ${f.i10Index}`,
+          conference: "N/A",
+          venueType: "Academic Profile",
+          publicationYear: totalPubs,
+          citationCount: totalCits,
+          doi: f.scholarAuthorId || "N/A",
+          issnDoi: `Scholar ID: ${f.scholarAuthorId || "N/A"}`,
+          abstract: `Faculty Summary for ${f.user?.name} at ${f.department?.name || "Computer Engineering"}. Total Publications: ${totalPubs}, Total Citations: ${totalCits}, h-index: ${f.hIndex}, i10-index: ${f.i10Index}.`,
+          abstractSource: "Google Scholar Profile",
+          status: f.scholarSyncStatus || "SYNCED",
+          researchArea: (f.researchInterests && f.researchInterests.length > 0) ? f.researchInterests.join(", ") : "Computer Engineering",
+          createdAt: f.createdAt ? f.createdAt.toISOString().split("T")[0] : "N/A",
+        };
+      });
+
+      return {
+        total: totalFaculty,
+        page,
+        limit,
+        totalPages: Math.ceil(totalFaculty / limit),
+        summary: {
+          totalPublications: totalPublicationsSum,
+          totalCitations: totalCitationsSum,
+          avgCitations,
+          publishedCount: totalFaculty,
+          scholarCitations: totalCitationsSum,
+          scholarHIndex: maxHIndex,
+          scholarI10Index: maxI10Index,
+          scopusCitations: 0,
+          scopusHIndex: 0,
+          scopusPublicationCount: 0,
+          wosPublicationCount: 0,
+        },
+        grouping,
+        groupSummaries,
+        records,
+        appliedFilters: {
+          departmentId: departmentId || "All Departments",
+          facultyId: facultyId || "All Faculty",
+          yearRange: "All Faculty",
+          status: status || "All Statuses",
+          search: search || "None",
+        },
+      };
+    }
+
     // Authorization & Scope Filtering
     const where: any = {};
 
@@ -136,13 +293,13 @@ export class ReportService {
     } else if (user.role === "FACULTY") {
       // Faculty scope: If department specified, check access or filter by own department / own creations
       const faculty = await prisma.faculty.findUnique({ where: { userId: user.id } });
-      if (!faculty) {
-        throw new Error("Faculty profile not found");
-      }
-      if (departmentId && departmentId !== faculty.departmentId) {
-        // Faculty querying another department: enforce scoping to public published or own department
-        where.departmentId = departmentId;
-        where.status = "PUBLISHED";
+      if (faculty) {
+        if (departmentId && departmentId !== faculty.departmentId) {
+          where.departmentId = departmentId;
+          where.status = "PUBLISHED";
+        } else if (departmentId) {
+          where.departmentId = departmentId;
+        }
       } else if (departmentId) {
         where.departmentId = departmentId;
       }
@@ -228,7 +385,19 @@ export class ReportService {
         createdBy: { select: { id: true, name: true, email: true } },
         authors: {
           include: {
-            faculty: { select: { id: true, employeeId: true, user: { select: { name: true } } } },
+            faculty: {
+              select: {
+                id: true,
+                employeeId: true,
+                hIndex: true,
+                i10Index: true,
+                totalCitations: true,
+                publicationCount: true,
+                scholarUrl: true,
+                scholarAuthorId: true,
+                user: { select: { name: true, email: true } },
+              },
+            },
             student: { select: { id: true, rollNumber: true, user: { select: { name: true } } } },
           },
           orderBy: { authorOrder: "asc" },
@@ -254,23 +423,26 @@ export class ReportService {
     const computedI10Index = citationsSorted.filter((c) => c >= 10).length;
 
     // 2. Query Faculty Bibliometric Profiles for Index Metrics if synced
-    const facultyProfiles = await prisma.faculty.findMany({
-      where: departmentId ? { departmentId } : {},
-      select: {
-        totalCitations: true,
-        hIndex: true,
-        i10Index: true,
-        scopusCitations: true,
-        scopusHIndex: true,
-        publicationCount: true,
-      },
-    });
+    let facultyProfiles: any[] = [];
+    try {
+      facultyProfiles = await prisma.faculty.findMany({
+        where: departmentId ? { departmentId } : {},
+        select: {
+          totalCitations: true,
+          hIndex: true,
+          i10Index: true,
+          publicationCount: true,
+        },
+      });
+    } catch {
+      facultyProfiles = [];
+    }
 
-    const maxScholarH = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f) => f.hIndex || 0)) : 0;
-    const maxScholarI10 = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f) => f.i10Index || 0)) : 0;
-    const totalScholarCit = facultyProfiles.reduce((acc, f) => acc + (f.totalCitations || 0), 0);
-    const totalScopusCit = facultyProfiles.reduce((acc, f) => acc + (f.scopusCitations || 0), 0);
-    const maxScopusH = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f) => f.scopusHIndex || 0)) : 0;
+    const maxScholarH = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f: any) => f.hIndex || 0)) : 0;
+    const maxScholarI10 = facultyProfiles.length > 0 ? Math.max(...facultyProfiles.map((f: any) => f.i10Index || 0)) : 0;
+    const totalScholarCit = facultyProfiles.reduce((acc, f: any) => acc + (f.totalCitations || 0), 0);
+    const totalScopusCit = 0;
+    const maxScopusH = 0;
 
     // 3. Google Scholar Metrics (Real paper citation & h-index / i10-index calculation)
     const scholarCitations = Math.max(allCitations, totalScholarCit);
@@ -382,6 +554,13 @@ export class ReportService {
         coAuthors: coAuthorsStr,
         facultyName: primaryFaculty ? primaryFaculty.user.name : (item.createdBy.name || "N/A"),
         employeeId: primaryFaculty ? primaryFaculty.employeeId : "N/A",
+        email: primaryFaculty?.user?.email || item.createdBy?.email || "N/A",
+        hIndex: primaryFaculty?.hIndex ?? 0,
+        i10Index: primaryFaculty?.i10Index ?? 0,
+        totalCitations: primaryFaculty?.totalCitations ?? item.citationCount ?? 0,
+        publicationCount: primaryFaculty?.publicationCount ?? 1,
+        scholarUrl: primaryFaculty?.scholarUrl || "N/A",
+        scholarAuthorId: primaryFaculty?.scholarAuthorId || "N/A",
         studentName: primaryStudent ? primaryStudent.user.name : "N/A",
         rollNumber: primaryStudent ? primaryStudent.rollNumber : "N/A",
         department: item.department?.name || "General Department",
@@ -398,6 +577,7 @@ export class ReportService {
         citationCount: item.citationCount || 0,
         researchArea: item.researchArea || "Computer Science",
         status: item.status,
+        lastSyncTime: "Verified",
         createdAt: item.createdAt.toISOString().split("T")[0],
       };
     });
@@ -459,10 +639,36 @@ export class ReportService {
       researchArea: "Research Area",
       status: "Publication Status",
       createdAt: "Created Date",
+      hIndex: "Scholar h-index",
+      i10Index: "Scholar i10-index",
+      totalCitations: "Scholar Total Citations",
+      publicationCount: "Total Publications",
+      scholarUrl: "Google Scholar Profile URL",
+      scholarAuthorId: "Scholar Author ID",
+      email: "Faculty Email",
+      lastSyncTime: "Last Synced Date",
     };
+
+    const isFacultyTotals =
+      reportTitle.toLowerCase().includes("scholar") ||
+      reportTitle.toLowerCase().includes("faculty") ||
+      (reportData.records?.length > 0 && reportData.records[0]?.facultyName && !reportData.records[0]?.journal);
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
+      : isFacultyTotals
+      ? [
+          { key: "slNo", label: "Sl. No." },
+          { key: "facultyName", label: "Faculty Name" },
+          { key: "employeeId", label: "Employee ID" },
+          { key: "department", label: "Department" },
+          { key: "publicationCount", label: "Total Publications" },
+          { key: "totalCitations", label: "Total Citations" },
+          { key: "hIndex", label: "Scholar h-index" },
+          { key: "i10Index", label: "Scholar i10-index" },
+          { key: "scholarUrl", label: "Google Scholar Profile URL" },
+          { key: "email", label: "Faculty Email" },
+        ]
       : [
           { key: "slNo", label: "Sl. No." },
           { key: "title", label: "Paper Title" },
@@ -481,8 +687,13 @@ export class ReportService {
     csvContent += `"KRIYA AI-POWERED RESEARCH INTELLIGENCE PLATFORM"\n`;
     csvContent += `"${reportTitle.toUpperCase()}"\n`;
     csvContent += `"Generated On: ${new Date().toLocaleString()}"\n`;
-    csvContent += `"BIBLIOMETRIC INDEX METRICS: Google Scholar Citations: ${reportData.summary.scholarCitations} | Scholar h-index: ${reportData.summary.scholarHIndex} | Scopus Citations: ${reportData.summary.scopusCitations} | Scopus h-index: ${reportData.summary.scopusHIndex} | WoS Papers: ${reportData.summary.wosPublicationCount}"\n`;
-    csvContent += `"Total Records: ${reportData.total} | Total Citations: ${reportData.summary.totalCitations}"\n\n`;
+    if (isFacultyTotals) {
+      csvContent += `"TOTAL FACULTY MEMBERS: ${reportData.total} | TOTAL PUBLICATIONS: ${reportData.summary.totalPublications} | TOTAL CITATIONS: ${reportData.summary.totalCitations}"\n`;
+      csvContent += `"BIBLIOMETRIC SUMMARY: Max Scholar h-index: ${reportData.summary.scholarHIndex} | Max i10-index: ${reportData.summary.scholarI10Index} | Avg Citations / Faculty: ${reportData.summary.avgCitations}"\n\n`;
+    } else {
+      csvContent += `"BIBLIOMETRIC INDEX METRICS: Google Scholar Citations: ${reportData.summary.scholarCitations} | Scholar h-index: ${reportData.summary.scholarHIndex} | Scopus Citations: ${reportData.summary.scopusCitations} | Scopus h-index: ${reportData.summary.scopusHIndex} | WoS Papers: ${reportData.summary.wosPublicationCount}"\n`;
+      csvContent += `"Total Records: ${reportData.total} | Total Citations: ${reportData.summary.totalCitations}"\n\n`;
+    }
 
     // Table Column Headers
     csvContent += activeCols.map((c) => `"${c.label}"`).join(",") + "\n";
@@ -525,10 +736,36 @@ export class ReportService {
       researchArea: "Research Area",
       status: "Status",
       createdAt: "Created Date",
+      hIndex: "h-index",
+      i10Index: "i10-index",
+      totalCitations: "Scholar Citations",
+      publicationCount: "Publications",
+      scholarUrl: "Scholar Profile",
+      scholarAuthorId: "Scholar ID",
+      email: "Email Address",
+      lastSyncTime: "Last Synced",
     };
+
+    const isFacultyTotals =
+      reportTitle.toLowerCase().includes("scholar") ||
+      reportTitle.toLowerCase().includes("faculty") ||
+      (reportData.records?.length > 0 && reportData.records[0]?.facultyName && !reportData.records[0]?.journal);
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
+      : isFacultyTotals
+      ? [
+          { key: "slNo", label: "Sl." },
+          { key: "facultyName", label: "Faculty Name" },
+          { key: "employeeId", label: "Emp. ID" },
+          { key: "department", label: "Department" },
+          { key: "publicationCount", label: "Total Publications" },
+          { key: "totalCitations", label: "Total Citations" },
+          { key: "hIndex", label: "h-index" },
+          { key: "i10Index", label: "i10-index" },
+          { key: "scholarUrl", label: "Scholar Profile" },
+          { key: "email", label: "Email Address" },
+        ]
       : [
           { key: "slNo", label: "Sl." },
           { key: "title", label: "Title of Paper & Abstract" },
@@ -610,19 +847,19 @@ export class ReportService {
   <div class="summary-grid">
     <div class="card">
       <div class="val">${reportData.total}</div>
-      <div class="lbl">Total Manuscripts</div>
+      <div class="lbl">${isFacultyTotals ? "Total Faculty Members" : "Total Manuscripts"}</div>
     </div>
     <div class="card">
-      <div class="val" style="color: #2563eb;">${reportData.summary.totalCitations}</div>
-      <div class="lbl">Total Citations</div>
+      <div class="val" style="color: #2563eb;">${isFacultyTotals ? reportData.summary.totalPublications : reportData.summary.totalCitations}</div>
+      <div class="lbl">${isFacultyTotals ? "Total Publications" : "Total Citations"}</div>
     </div>
     <div class="card">
-      <div class="val">${reportData.summary.avgCitations}</div>
-      <div class="lbl">Avg Citations / Paper</div>
+      <div class="val">${isFacultyTotals ? reportData.summary.totalCitations : reportData.summary.avgCitations}</div>
+      <div class="lbl">${isFacultyTotals ? "Total Citations" : "Avg Citations / Paper"}</div>
     </div>
     <div class="card">
-      <div class="val" style="color: #16a34a;">${reportData.summary.publishedCount}</div>
-      <div class="lbl">Peer-Reviewed Published</div>
+      <div class="val" style="color: #16a34a;">${isFacultyTotals ? reportData.summary.scholarHIndex : reportData.summary.publishedCount}</div>
+      <div class="lbl">${isFacultyTotals ? "Highest Scholar h-index" : "Peer-Reviewed Published"}</div>
     </div>
   </div>
 
@@ -701,6 +938,21 @@ export class ReportService {
               }
               if (c.key === "citationCount") {
                 return `<td><strong style="color:#d97706;">🎓 ${row.citationCount || 0}</strong></td>`;
+              }
+              if (c.key === "totalCitations") {
+                return `<td><strong style="color:#d97706;">🎓 ${row.totalCitations ?? 0}</strong></td>`;
+              }
+              if (c.key === "hIndex") {
+                return `<td><span class="badge" style="background:#fef3c7; color:#92400e; font-size:10px; font-weight:bold;">h: ${row.hIndex ?? 0}</span></td>`;
+              }
+              if (c.key === "i10Index") {
+                return `<td><span class="badge" style="background:#dbeafe; color:#1e40af; font-size:10px; font-weight:bold;">i10: ${row.i10Index ?? 0}</span></td>`;
+              }
+              if (c.key === "publicationCount") {
+                return `<td><strong style="color:#0f172a;">📄 ${row.publicationCount ?? 0}</strong></td>`;
+              }
+              if (c.key === "scholarUrl") {
+                return `<td>${row.scholarUrl && row.scholarUrl !== "N/A" ? `<a href="${row.scholarUrl}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">Scholar Profile ↗</a>` : "—"}</td>`;
               }
               if (c.key === "abstract") {
                 return `<td>

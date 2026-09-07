@@ -21,8 +21,20 @@ export interface ReportFilterPayload {
   citationMin?: number | undefined;
   search?: string | undefined;
   columns?: string[] | undefined;
-  grouping?: "department" | "year" | "status" | "researchArea" | "none" | undefined;
-  sorting?: "year_desc" | "year_asc" | "citations_desc" | "citations_asc" | "title_asc" | undefined;
+  grouping?: "department" | "year" | "status" | "researchArea" | "faculty" | "none" | undefined;
+  viewMode?: "FACULTY_TOTALS" | "PAPER_WISE" | string | undefined;
+  sorting?:
+    | "year_desc"
+    | "year_asc"
+    | "citations_desc"
+    | "citations_asc"
+    | "title_asc"
+    | "hindex_desc"
+    | "hindex_asc"
+    | "i10_desc"
+    | "i10_asc"
+    | "publications_desc"
+    | undefined;
   page?: number | undefined;
   limit?: number | undefined;
 }

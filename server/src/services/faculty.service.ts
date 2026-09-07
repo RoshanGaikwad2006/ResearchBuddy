@@ -163,6 +163,50 @@ export class FacultyService {
     if (!faculty) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user && (user.role === "FACULTY" || user.role === "ADMIN")) {
+        const cleanName = user.name.replace(/^Dr\.\s*/i, "").trim();
+        const unclaimed = await prisma.faculty.findFirst({
+          where: {
+            OR: [
+              { otherResearcherId: `PREV_EMAIL:${user.email}` },
+              {
+                user: {
+                  email: { startsWith: "unclaimed_" },
+                  name: { contains: cleanName, mode: "insensitive" },
+                },
+              },
+            ],
+          },
+        });
+
+        if (unclaimed) {
+          const oldPlaceholderUserId = unclaimed.userId;
+          const claimed = await prisma.faculty.update({
+            where: { id: unclaimed.id },
+            data: {
+              userId: user.id,
+              otherResearcherId: null,
+            },
+            include: {
+              user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } },
+              department: true,
+              researchAuthorships: {
+                include: {
+                  research: {
+                    include: {
+                      authors: true,
+                      department: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (oldPlaceholderUserId !== user.id) {
+            await prisma.user.delete({ where: { id: oldPlaceholderUserId } }).catch(() => {});
+          }
+          return claimed;
+        }
+
         let dept = await prisma.department.findFirst();
         if (!dept) {
           dept = await prisma.department.create({
