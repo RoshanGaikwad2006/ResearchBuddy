@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 KRIYA is an enterprise-grade SaaS platform engineered for academic institutions to consolidate, analyze, and enrich research publication records. Built around a unified academic data model, it integrates global metadata graphs (Google Scholar, OpenAlex, and Crossref) to eliminate manual citation tracking and data inconsistency. KRIYA features a deterministic local text embedding engine for semantic research gap identification and faculty collaboration matchmaking, combined with a production-grade data integrity auditor and an accreditation-ready reporting engine.
-
+.
 ---
 
 ## Table of Contents
