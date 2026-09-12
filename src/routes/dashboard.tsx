@@ -484,7 +484,7 @@ function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-base font-bold text-[#102A43]">Recent Publications</h3>
                         <span className="text-xs bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">
-                          {displayPublications.length} Total
+                          {Math.max(displayPublications.length, summary.totalPublications || 0)} Total
                         </span>
                       </div>
                       <button

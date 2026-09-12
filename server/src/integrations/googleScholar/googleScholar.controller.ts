@@ -25,7 +25,23 @@ export const getScholarPreview = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    const preview = await GoogleScholarService.fetchProfilePreview(input);
+    let hint: any = undefined;
+    if (req.user?.id) {
+      const faculty = await prisma.faculty.findUnique({
+        where: { userId: req.user.id },
+        include: { user: true, department: true },
+      });
+      if (faculty) {
+        hint = {
+          facultyName: faculty.user.name,
+          departmentName: faculty.department?.name,
+          affiliation: faculty.department?.name || faculty.affiliation || "Department of Computer Science & Engineering",
+          interests: faculty.researchInterests,
+        };
+      }
+    }
+
+    const preview = await GoogleScholarService.fetchProfilePreview(input, hint);
     res.status(200).json({ message: "Google Scholar profile preview fetched successfully", preview });
   } catch (error: any) {
     res.status(400).json({ message: error.message || "Failed to fetch Google Scholar profile preview" });

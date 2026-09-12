@@ -1,6 +1,7 @@
 import { prisma } from "../config/db.js";
 import { ScholarSyncAgent } from "../integrations/googleScholar/scholarSyncAgent.service.js";
 import { ScopusSyncService } from "../integrations/scopus/scopusSync.service.js";
+import { ScholarNormalizationService } from "../integrations/googleScholar/scholarNormalization.service.js";
 
 export interface IdentityStatus {
   scholar: "CONNECTED" | "NOT_PROVIDED" | "INVALID" | "SYNCING" | "SYNCED" | "ERROR";
@@ -224,12 +225,53 @@ export class FacultyResearchIdentityService {
     let bookCount = 0;
     let otherCount = 0;
 
+    const facultyNameTokens = faculty.user.name.split(/\s+/).filter((t) => t.length >= 3);
+    const userResearches = await prisma.research.findMany({
+      where: {
+        OR: [
+          { createdById: faculty.userId },
+          { authors: { some: { facultyId: faculty.id } } },
+          ...(facultyNameTokens.length > 0
+            ? [
+                {
+                  authors: {
+                    some: {
+                      OR: facultyNameTokens.map((t) => ({
+                        authorName: { contains: t, mode: "insensitive" as const },
+                      })),
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      include: {
+        authors: true,
+      },
+    });
+
     const uniqueResearches = new Map<string, any>();
-    faculty.researchAuthorships.forEach((a) => {
+    (faculty.researchAuthorships || []).forEach((a) => {
       if (a.research) {
         uniqueResearches.set(a.research.id, a.research);
       }
     });
+    userResearches.forEach((r) => {
+      uniqueResearches.set(r.id, r);
+    });
+
+    // Auto-link any matching unlinked author records in background
+    for (const r of userResearches) {
+      for (const auth of r.authors || []) {
+        if (!auth.facultyId && ScholarNormalizationService.isAuthorMatchingFaculty(auth.authorName, faculty.user.name)) {
+          prisma.researchAuthor.update({
+            where: { id: auth.id },
+            data: { facultyId: faculty.id },
+          }).catch(() => {});
+        }
+      }
+    }
 
     uniqueResearches.forEach((r) => {
       const text = `${r.title || ""} ${r.journal || ""} ${r.conference || ""}`.toLowerCase();
@@ -247,6 +289,11 @@ export class FacultyResearchIdentityService {
       else otherCount++;
     });
 
+    const finalPublicationCount = Math.max(
+      uniqueResearches.size,
+      faculty.publicationCount || 0
+    );
+
     const completeness = this.calculateCompleteness({
       departmentId: faculty.departmentId,
       scholarAuthorId: faculty.scholarAuthorId,
@@ -255,7 +302,7 @@ export class FacultyResearchIdentityService {
       researcherId: faculty.researcherId,
       researchInterests: faculty.researchInterests,
       institutionalAffiliation: faculty.institutionalAffiliation,
-      publicationCount: uniqueResearches.size,
+      publicationCount: finalPublicationCount,
     });
 
     let dbPaperCitations = 0;
@@ -303,10 +350,10 @@ export class FacultyResearchIdentityService {
         wos: isWosConnected ? "CONNECTED_FREE" : "NOT_CONNECTED",
       },
       metrics: {
-        publicationCount: uniqueResearches.size,
+        publicationCount: finalPublicationCount,
         journalCount,
         conferenceCount,
-        totalCitations: faculty.totalCitations,
+        totalCitations: Math.max(faculty.totalCitations || 0, dbPaperCitations),
         hIndex: faculty.hIndex,
         i10Index: faculty.i10Index,
         scopusCitations: faculty.scopusCitations,

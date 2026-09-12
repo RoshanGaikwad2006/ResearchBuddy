@@ -6,13 +6,32 @@ export class DashboardService {
 
     let researchFilter: any = {};
 
+    let facultyRecord: any = null;
+
     if (role === "FACULTY") {
-      const faculty = await prisma.faculty.findUnique({ where: { userId } });
-      if (faculty) {
+      facultyRecord = await prisma.faculty.findUnique({
+        where: { userId },
+        include: { user: true },
+      });
+      if (facultyRecord) {
+        const nameTokens = (facultyRecord.user?.name || "").trim().split(/\s+/).filter((t: string) => t.length >= 3);
         researchFilter = {
           OR: [
             { createdById: userId },
-            { authors: { some: { facultyId: faculty.id } } },
+            { authors: { some: { facultyId: facultyRecord.id } } },
+            ...(nameTokens.length > 0
+              ? [
+                  {
+                    authors: {
+                      some: {
+                        OR: nameTokens.map((t: string) => ({
+                          authorName: { contains: t, mode: "insensitive" as const },
+                        })),
+                      },
+                    },
+                  },
+                ]
+              : []),
           ],
         };
       } else {
@@ -77,17 +96,37 @@ export class DashboardService {
       }),
     ]);
 
+    let finalTotalPubs = totalPublications;
+    let finalApproved = approvedCount;
+    let finalTotalCitations = citationsSum?._sum?.citationCount ?? 0;
+
+    if (role === "FACULTY" && facultyRecord) {
+      finalTotalPubs = Math.max(totalPublications, facultyRecord.publicationCount || 0);
+      finalTotalCitations = Math.max(finalTotalCitations, facultyRecord.totalCitations || 0);
+      if (pendingCount === 0 && rejectedCount === 0) {
+        finalApproved = Math.max(approvedCount, finalTotalPubs);
+      }
+    } else if (role === "ADMIN" || role === "RESEARCH_CELL") {
+      const allFacultyAgg = await prisma.faculty.aggregate({
+        _sum: { publicationCount: true, totalCitations: true },
+      });
+      finalTotalPubs = Math.max(totalPublications, allFacultyAgg._sum.publicationCount || 0);
+      finalTotalCitations = Math.max(finalTotalCitations, allFacultyAgg._sum.totalCitations || 0);
+    }
+
     return {
       role,
       summary: {
-        totalPublications,
+        totalPublications: finalTotalPubs,
         pendingCount,
-        approvedCount,
+        approvedCount: finalApproved,
         rejectedCount,
         departmentCount,
-        totalCitations: citationsSum._sum.citationCount || 0,
+        totalCitations: finalTotalCitations,
       },
-      recentSubmissions: recentActivity,
+      recentSubmissions: recentActivity || [],
     };
   }
 }
+
+

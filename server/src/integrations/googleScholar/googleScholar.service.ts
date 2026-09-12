@@ -3,10 +3,33 @@ import { DoiIntegrationService } from "../../services/doiIntegration.service.js"
 import { OpenAlexService } from "../../services/openalex.service.js";
 import type { GoogleScholarProfilePreview, ScholarPublicationPreview } from "./googleScholar.types.js";
 import { extractScholarAuthorId } from "./googleScholar.utils.js";
+import { OpenRouterScholarService, type ScholarFetchHint } from "../ai/openrouterScholar.service.js";
 
 export class GoogleScholarService {
-  static async fetchProfilePreview(input: string): Promise<GoogleScholarProfilePreview> {
+  static async fetchProfilePreview(
+    input: string,
+    hint?: ScholarFetchHint
+  ): Promise<GoogleScholarProfilePreview> {
     const authorId = extractScholarAuthorId(input);
+
+    // 1. Primary: Fetch publication and citation data via OpenRouter AI
+    const openrouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    if (openrouterKey) {
+      try {
+        console.log(`[SCHOLAR_FETCH] Querying OpenRouter AI for publication and citation metrics (Input: ${input})...`);
+        const openRouterPreview = await OpenRouterScholarService.fetchProfilePreview(input, hint);
+        if (openRouterPreview && openRouterPreview.publications.length > 0) {
+          console.log(
+            `✅ [OPENROUTER_SUCCESS] Retrieved ${openRouterPreview.publications.length} publications, ${openRouterPreview.totalCitations} citations for ${openRouterPreview.name}`
+          );
+          return openRouterPreview;
+        }
+      } catch (err: any) {
+        console.warn("OpenRouter scholar fetch encountered error, falling back to secondary sources:", err.message || err);
+      }
+    }
+
+    // 2. Secondary: SerpAPI Google Scholar Scraping
     const apiKey = process.env.SERP_API_KEY;
 
     if (apiKey) {
@@ -59,7 +82,7 @@ export class GoogleScholarService {
       }
     }
 
-    // Generic Fallback Profile Generator if SERP_API_KEY is omitted or limited
+    // Generic Fallback Profile Generator if APIs are omitted or limited
     return {
       authorId,
       name: "Scholar Academic Researcher",
@@ -112,7 +135,12 @@ export class GoogleScholarService {
     });
 
     try {
-      const profile = await this.fetchProfilePreview(inputScholarUrlOrId);
+      const profile = await this.fetchProfilePreview(inputScholarUrlOrId, {
+        facultyName: faculty.user.name,
+        departmentName: faculty.department?.name,
+        affiliation: faculty.department?.name || faculty.affiliation || "Department of Computer Science & Engineering",
+        interests: faculty.researchInterests,
+      });
 
       // Fetch all faculty members in database for dynamic cross-faculty author linking
       const allFaculties = await prisma.faculty.findMany({ include: { user: true } });
@@ -195,16 +223,25 @@ export class GoogleScholarService {
             );
           });
 
-          const isCurrentFaculty = matchedFaculty?.id === faculty.id ||
-            authorNameLower.includes(faculty.user.name.toLowerCase());
+          const isCurrentFaculty =
+            matchedFaculty?.id === faculty.id ||
+            ScholarNormalizationService.isAuthorMatchingFaculty(a.authorName, faculty.user.name) ||
+            authorNameLower.includes(faculty.user.name.toLowerCase()) ||
+            openAlexAuthors.length === 1;
 
           return {
             authorName: a.authorName,
             authorOrder: a.authorOrder || idx + 1,
-            facultyId: matchedFaculty ? matchedFaculty.id : (isCurrentFaculty ? faculty.id : null),
+            facultyId: isCurrentFaculty ? faculty.id : (matchedFaculty ? matchedFaculty.id : null),
             isCorresponding: isCurrentFaculty,
           };
         });
+
+        // Safeguard: Ensure target faculty is linked to at least one author entry
+        if (!authorCreateData.some((a) => a.facultyId === faculty.id) && authorCreateData.length > 0) {
+          authorCreateData[0].facultyId = faculty.id;
+          authorCreateData[0].isCorresponding = true;
+        }
 
         // Duplicate Detection
         let existingResearch = null;

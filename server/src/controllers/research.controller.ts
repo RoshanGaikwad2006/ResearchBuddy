@@ -217,3 +217,22 @@ export const enrichResearchAbstractController = async (req: AuthenticatedRequest
     res.status(400).json({ message: error.message || "Failed to enrich abstract" });
   }
 };
+
+export const refreshResearchCitationsController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = getParamId(req.params.id);
+    if (!id) {
+      res.status(400).json({ message: "Research ID required" });
+      return;
+    }
+
+    const updated = await ResearchService.refreshCitationsViaOpenRouter(id);
+    res.status(200).json({
+      message: "Publication citations successfully refreshed via OpenRouter AI engine",
+      research: updated,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to refresh citations via OpenRouter" });
+  }
+};
+

@@ -365,7 +365,11 @@ export function FacultyProfileCard() {
             </span>
             <div>
               <p className="text-2xl font-bold text-[#102A43] leading-none">
-                {identity.metrics?.publicationCount ?? 0}
+                {Math.max(
+                  identity.metrics?.publicationCount ?? 0,
+                  pubsList.length,
+                  (myPubsData as any)?.pagination?.total ?? 0
+                )}
               </p>
               <p className="text-xs text-[#64748B] mt-1 font-medium">
                 Publications

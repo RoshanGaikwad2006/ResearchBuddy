@@ -8,6 +8,7 @@ import {
   updateAuthorAffiliation,
   updateResearch,
   enrichResearchAbstractController,
+  refreshResearchCitationsController,
 } from "../controllers/research.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -21,7 +22,9 @@ router.get("/", listResearches);
 router.get("/:id", getResearchById);
 router.put("/:id", updateResearch);
 router.post("/:id/enrich-abstract", enrichResearchAbstractController);
+router.post("/:id/refresh-citations", refreshResearchCitationsController);
 router.patch("/:id/authors/:authorId/affiliation", updateAuthorAffiliation);
 router.delete("/:id", deleteResearch);
 
 export default router;
+

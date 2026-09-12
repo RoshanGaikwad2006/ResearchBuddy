@@ -124,8 +124,13 @@ export class ScholarSyncAgent {
     try {
       console.log(`[SCHOLAR_SYNC_START] Faculty: ${faculty.user.name} (${facultyId})`);
 
-      // 1. Acquire Google Scholar data via SERP API integration
-      const profile = await GoogleScholarService.fetchProfilePreview(inputScholarUrlOrId);
+      // 1. Acquire Google Scholar & Academic data via OpenRouter AI integration
+      const profile = await GoogleScholarService.fetchProfilePreview(inputScholarUrlOrId, {
+        facultyName: faculty.user.name,
+        departmentName: faculty.department?.name,
+        affiliation: faculty.department?.name || faculty.affiliation || "Department of Computer Science & Engineering",
+        interests: faculty.researchInterests,
+      });
 
       // Fetch all existing KRIYA publications to run 5-tier deterministic matching
       const existingResearchesRaw = await prisma.research.findMany({
@@ -237,8 +242,10 @@ export class ScholarSyncAgent {
 
           // Check if author is the target faculty member being synchronized
           const isTargetFaculty =
+            ScholarNormalizationService.isAuthorMatchingFaculty(a.authorName, faculty.user.name) ||
             authorNameNorm.includes(ScholarNormalizationService.normalizeAuthorName(faculty.user.name)) ||
-            ScholarNormalizationService.normalizeAuthorName(faculty.user.name).includes(authorNameNorm);
+            ScholarNormalizationService.normalizeAuthorName(faculty.user.name).includes(authorNameNorm) ||
+            openAlexAuthors.length === 1;
 
           if (isTargetFaculty) {
             matchedFacultyId = faculty.id;
@@ -247,11 +254,7 @@ export class ScholarSyncAgent {
             // Strong Identity Signal Check for other faculty members:
             const strongMatch = allFaculties.find((f) => {
               if (f.id === faculty.id) return false;
-              // Strong signal 1: Matching Scholar ID or ORCID
-              const isExactName =
-                ScholarNormalizationService.normalizeAuthorName(f.user.name) === authorNameNorm;
-              const isExactEmail = f.user.email.toLowerCase().includes(authorNameNorm.replace(/\s+/g, ""));
-              return isExactName || isExactEmail;
+              return ScholarNormalizationService.isAuthorMatchingFaculty(a.authorName, f.user.name);
             });
 
             if (strongMatch) {
@@ -266,6 +269,12 @@ export class ScholarSyncAgent {
             isCorresponding: isCorresponding || (idx === 0 && !matchedFacultyId),
           };
         });
+
+        // Safeguard: Ensure target faculty is associated with at least one author entry
+        if (!authorCreateData.some((a) => a.facultyId === faculty.id) && authorCreateData.length > 0) {
+          authorCreateData[0].facultyId = faculty.id;
+          authorCreateData[0].isCorresponding = true;
+        }
 
         // 4. Deterministic Priority Matching against existing publications
         const matchResult = ScholarMatchingService.findBestMatch(

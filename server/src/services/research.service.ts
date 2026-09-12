@@ -354,4 +354,79 @@ export class ResearchService {
       data: { abstract: fetchedAbstract, abstractSource: source },
     });
   }
+
+  static async refreshCitationsViaOpenRouter(id: string) {
+    const paper = await prisma.research.findUnique({
+      where: { id },
+      include: { authors: true },
+    });
+    if (!paper) throw new Error("Research paper not found.");
+
+    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("OpenRouter API key not configured.");
+
+    const authorNames = paper.authors.map((a) => a.authorName).join(", ");
+    const prompt = `Act as an authoritative academic citation and bibliometrics engine.
+Analyze and retrieve the current verified citation count for this published research:
+Title: "${paper.title}"
+Authors: "${authorNames}"
+Publication Year: ${paper.publicationYear}
+DOI: "${paper.doi || "N/A"}"
+Journal/Venue: "${paper.journal || paper.conference || "Scholarly Publication"}"
+
+Return STRICT JSON only:
+{
+  "citationCount": 15
+}`;
+
+    const modelName = process.env.OPENROUTER_MODEL || "openrouter/auto";
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://kriya.institution.edu",
+        "X-Title": "KRIYA AI Research Platform",
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter API citation query failed with status ${response.status}`);
+    }
+
+    const resJson: any = await response.json();
+    const content = resJson.choices?.[0]?.message?.content || "";
+    const cleanJson = content.replace(/```json|```/g, "").trim();
+    let count = paper.citationCount;
+    try {
+      const parsed = JSON.parse(cleanJson);
+      if (Number.isFinite(Number(parsed.citationCount)) && Number(parsed.citationCount) >= 0) {
+        count = Number(parsed.citationCount);
+      }
+    } catch {
+      // Keep existing count if parse fails
+    }
+
+    return prisma.research.update({
+      where: { id },
+      data: { citationCount: count },
+      include: {
+        createdBy: { select: { id: true, name: true, email: true, role: true } },
+        department: true,
+        authors: {
+          include: {
+            faculty: { include: { user: { select: { name: true, email: true } } } },
+            student: { include: { user: { select: { name: true, email: true } } } },
+          },
+          orderBy: { authorOrder: "asc" },
+        },
+        approvals: true,
+      },
+    });
+  }
 }

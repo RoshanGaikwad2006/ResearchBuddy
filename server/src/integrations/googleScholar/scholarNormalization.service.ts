@@ -51,6 +51,42 @@ export class ScholarNormalizationService {
   }
 
   /**
+   * Robust author matching that handles inverted names (e.g. "Birla Kushal" vs "Kushal Birla"),
+   * initials (e.g. "Birla K.", "K. Birla"), and name variations.
+   */
+  static isAuthorMatchingFaculty(authorName?: string | null, facultyName?: string | null): boolean {
+    if (!authorName || !facultyName) return false;
+    const normA = this.normalizeAuthorName(authorName);
+    const normF = this.normalizeAuthorName(facultyName);
+    if (!normA || !normF) return false;
+    if (normA === normF) return true;
+    if (normA.includes(normF) || normF.includes(normA)) return true;
+
+    const tokensA = normA.split(/\s+/).filter((t) => t.length >= 2);
+    const tokensF = normF.split(/\s+/).filter((t) => t.length >= 2);
+
+    if (tokensF.length >= 2 && tokensA.length >= 2) {
+      // Check if all major tokens of faculty name are present in author name
+      const allFacultyTokensMatch = tokensF.every((tf) =>
+        tokensA.some((ta) => ta.includes(tf) || tf.includes(ta))
+      );
+      if (allFacultyTokensMatch) return true;
+    }
+
+    // Check last name matching
+    const lastNameF = tokensF[tokensF.length - 1];
+    if (lastNameF && lastNameF.length >= 3 && tokensA.includes(lastNameF)) {
+      const firstInitialF = tokensF[0]?.charAt(0);
+      const remainingA = tokensA.filter((t) => t !== lastNameF);
+      if (!firstInitialF || remainingA.some((t) => t.startsWith(firstInitialF))) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Levenshtein similarity distance between two string titles (0.0 to 1.0)
    */
   static titleSimilarity(titleA: string, titleB: string): number {

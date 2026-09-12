@@ -18,6 +18,7 @@ import knowledgeGraphRoutes from "./routes/knowledgeGraph.routes.js";
 import researchDocumentRoutes from "./routes/researchDocument.routes.js";
 import { prisma } from "./config/db.js";
 import { SchedulerService } from "./services/scheduler.service.js";
+import { DataReconciliationService } from "./services/reconciliation.service.js";
 
 const app = express();
 const PORT = env.PORT || 5000;
@@ -69,6 +70,8 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ success: true, status: "ok", timestamp: new Date().toISOString() });
 });
 
+
+
 // Mounted Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/faculty", facultyRoutes);
@@ -116,6 +119,9 @@ const server = app.listen(PORT, async () => {
     await prisma.$connect();
     console.log("✅ Successfully connected to Supabase PostgreSQL database via Prisma");
     SchedulerService.initializeScheduler();
+    DataReconciliationService.reconcileAllFacultyPublications().catch((err) => {
+      console.warn("Automated reconciliation warning:", err.message || err);
+    });
   } catch (error) {
     console.error("❌ Failed to connect to Supabase database:", error);
   }
