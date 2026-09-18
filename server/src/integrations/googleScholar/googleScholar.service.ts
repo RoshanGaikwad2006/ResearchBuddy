@@ -3,6 +3,7 @@ import { DoiIntegrationService } from "../../services/doiIntegration.service.js"
 import { OpenAlexService } from "../../services/openalex.service.js";
 import type { GoogleScholarProfilePreview, ScholarPublicationPreview } from "./googleScholar.types.js";
 import { extractScholarAuthorId } from "./googleScholar.utils.js";
+import { ScholarNormalizationService } from "./scholarNormalization.service.js";
 import { OpenRouterScholarService, type ScholarFetchHint } from "../ai/openrouterScholar.service.js";
 
 export class GoogleScholarService {
