@@ -6,6 +6,31 @@ import { extractScholarAuthorId } from "./googleScholar.utils.js";
 import { ScholarNormalizationService } from "./scholarNormalization.service.js";
 import { OpenRouterScholarService, type ScholarFetchHint } from "../ai/openrouterScholar.service.js";
 
+export function extractPublicationYear(
+  rawYear?: any,
+  publicationText?: string,
+  snippetText?: string,
+  titleText?: string
+): number {
+  if (rawYear) {
+    const parsed = Number(rawYear);
+    if (!isNaN(parsed) && parsed >= 1950 && parsed <= new Date().getFullYear() + 1) {
+      return parsed;
+    }
+  }
+
+  const combined = `${publicationText || ""} ${snippetText || ""} ${titleText || ""}`;
+  const match = combined.match(/\b(19\d{2}|20[0-2]\d)\b/);
+  if (match) {
+    const extracted = parseInt(match[1], 10);
+    if (extracted >= 1950 && extracted <= new Date().getFullYear() + 1) {
+      return extracted;
+    }
+  }
+
+  return new Date().getFullYear();
+}
+
 export class GoogleScholarService {
   static async fetchProfilePreview(
     input: string,
@@ -55,7 +80,7 @@ export class GoogleScholarService {
             scholarId: art.citation_id,
             title: art.title || "Untitled Paper",
             authors: art.authors || "Unknown Authors",
-            year: art.year ? Number(art.year) : new Date().getFullYear(),
+            year: extractPublicationYear(art.year, art.publication, art.snippet, art.title),
             journal: art.publication || undefined,
             citationCount: art.cited_by?.value ? Number(art.cited_by.value) : 0,
             snippet: art.snippet || undefined,

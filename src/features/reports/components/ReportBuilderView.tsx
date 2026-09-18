@@ -17,6 +17,7 @@ import {
   Download,
   CheckCircle2,
   Users,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,14 +82,16 @@ const FACULTY_TOTALS_COLUMNS = [
 ];
 
 const PAPER_WISE_COLUMNS = [
+  "facultyName",
   "title",
-  "authors",
+  "primaryAuthor",
+  "coAuthors",
   "department",
   "journal",
   "publicationYear",
   "citationCount",
-  "status",
   "doi",
+  "status",
 ];
 
 export function ReportBuilderView() {
@@ -951,6 +954,25 @@ export function ReportBuilderView() {
                                       {row.abstractSource}
                                     </Badge>
                                   </div>
+                                ) : col.key === "doi" || col.key === "issnDoi" ? (
+                                  row.doi && row.doi !== "N/A" && row.doi.trim() !== "" ? (
+                                    <a
+                                      href={`https://doi.org/${row.doi.replace(/^https?:\/\/doi\.org\//, "").trim()}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-emerald-600 hover:text-emerald-700 hover:underline font-mono text-[11px] inline-flex items-center gap-1 font-semibold"
+                                      title={`Open DOI: ${row.doi}`}
+                                    >
+                                      <span>doi:{row.doi.replace(/^https?:\/\/doi\.org\//, "").trim()}</span>
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )
+                                ) : col.key === "primaryAuthor" ? (
+                                  <span className="font-semibold text-foreground text-xs">{row.primaryAuthor || "—"}</span>
+                                ) : col.key === "coAuthors" ? (
+                                  <span className="text-muted-foreground text-xs">{row.coAuthors || "—"}</span>
                                 ) : (
                                   <span className="truncate block max-w-xs">{row[col.key] || "—"}</span>
                                 )}

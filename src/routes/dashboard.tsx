@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { syncMyResearchProfile } from "@/services/faculty.service";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -103,11 +105,31 @@ function DashboardPage() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [selectedResearchModalItem, setSelectedResearchModalItem] = useState<ResearchItem | null>(null);
+  const [isHeaderSyncing, setIsHeaderSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
   const { user, role, logout } = useAuth();
   const { data: facultyData } = useMyFacultyProfile();
   const facultyProfile = facultyData?.faculty;
   const navigate = useNavigate();
+
+  const handleHeaderLiveSync = async () => {
+    if (isHeaderSyncing) return;
+    try {
+      setIsHeaderSyncing(true);
+      setSyncFeedback("Syncing Scholar data live...");
+      await syncMyResearchProfile();
+      await queryClient.invalidateQueries();
+      setSyncFeedback("Scholar Sync completed successfully!");
+      setTimeout(() => setSyncFeedback(null), 3500);
+    } catch (err: any) {
+      setSyncFeedback(err.message || "Failed to live sync");
+      setTimeout(() => setSyncFeedback(null), 4000);
+    } finally {
+      setIsHeaderSyncing(false);
+    }
+  };
 
   const { data: metricsData, isLoading: isMetricsLoading } = useDashboardMetrics();
   const { data: myResearchesData } = useMyResearchList({ limit: 100 });
@@ -231,9 +253,25 @@ function DashboardPage() {
             <SidebarTrigger className="text-[#102A43] hover:bg-[#F5F7FA]" />
             <span className="text-base font-semibold text-[#102A43]">Research Workspace</span>
 
-            <div className="ml-auto flex items-center gap-6">
+            <div className="ml-auto flex items-center gap-3 sm:gap-5">
               <button className="text-[#64748B] hover:text-[#102A43] p-1 transition-colors">
                 <Search className="h-5 w-5" />
+              </button>
+
+              {/* Live Sync Button Near Notification Bell */}
+              <button
+                type="button"
+                onClick={handleHeaderLiveSync}
+                disabled={isHeaderSyncing}
+                title="Live Sync Google Scholar & Research Profile"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  isHeaderSyncing
+                    ? "bg-[#102A43]/10 text-[#102A43] border-[#102A43]/20 cursor-not-allowed"
+                    : "bg-[#102A43] text-white hover:bg-[#173F63] border-transparent shadow-xs"
+                }`}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isHeaderSyncing ? "animate-spin text-[#102A43]" : "text-amber-400"}`} />
+                <span className="hidden sm:inline">{isHeaderSyncing ? "Syncing..." : "Live Sync"}</span>
               </button>
 
               <div className="relative">
@@ -242,6 +280,13 @@ function DashboardPage() {
                 </button>
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#B8891F]" />
               </div>
+
+              {syncFeedback && (
+                <div className="fixed top-16 right-6 z-50 rounded-lg bg-[#102A43] text-white px-4 py-2.5 text-xs font-medium shadow-xl border border-[#B8891F]/50 flex items-center gap-2">
+                  <RefreshCw className={`h-3 w-3 ${isHeaderSyncing ? "animate-spin text-amber-400" : "text-emerald-400"}`} />
+                  <span>{syncFeedback}</span>
+                </div>
+              )}
 
               <div className="h-6 w-px bg-[#E2E8F0]" />
 

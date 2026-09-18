@@ -401,8 +401,18 @@ export function ResearchSubmissionModal({ open, onOpenChange }: ResearchSubmissi
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pdfUrl">PDF Manuscript / Patent Document Link</Label>
-              <Input id="pdfUrl" placeholder="https://..." disabled={isLoading} {...register("pdfUrl")} />
+              <Label htmlFor="pdfUrl" className="flex items-center gap-1 font-semibold text-xs">
+                📁 Google Drive Link / Manuscript Document PDF
+              </Label>
+              <Input
+                id="pdfUrl"
+                placeholder="https://drive.google.com/file/d/... or https://..."
+                disabled={isLoading}
+                {...register("pdfUrl")}
+              />
+              <p className="text-[10.5px] text-muted-foreground">
+                Paste Google Drive view/share link or document URL for this paper's files.
+              </p>
             </div>
           </div>
 

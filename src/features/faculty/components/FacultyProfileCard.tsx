@@ -92,12 +92,12 @@ export function FacultyProfileCard() {
 
     try {
       const updated = await updateMyResearchIdentity({
-        scholarInput: scholarInput || undefined,
-        orcidInput: orcidInput || undefined,
-        scopusInput: scopusInput || undefined,
-        researcherId: researcherId || undefined,
-        googleDriveFolderUrl: driveFolderInput || undefined,
-        institutionalAffiliation: affiliationInput || undefined,
+        scholarInput: scholarInput.trim(),
+        orcidInput: orcidInput.trim(),
+        scopusInput: scopusInput.trim(),
+        researcherId: researcherId.trim(),
+        googleDriveFolderUrl: driveFolderInput.trim(),
+        institutionalAffiliation: affiliationInput.trim(),
         researchInterests,
       });
       setIdentity(updated);
@@ -155,13 +155,18 @@ export function FacultyProfileCard() {
   const pubsList = myPubsData?.items || [];
 
   const getVenueType = (p: any) => {
+    if (p.venueType === "PATENT" || !!p.patentNumber) return "PATENT";
+    if (p.venueType === "BOOK" || !!p.isbn) return "BOOK";
+    if (p.venueType === "CONFERENCE") return "CONFERENCE";
+    if (p.venueType === "OTHER") return "OTHER";
+    if (p.venueType === "JOURNAL") return "JOURNAL";
+
     const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
-    return p.venueType || (
-      p.patentNumber || /patent/i.test(text) ? "PATENT" :
-      p.isbn || /isbn/i.test(text) ? "BOOK" :
-      p.conference ? "CONFERENCE" :
-      p.journal ? "JOURNAL" : "JOURNAL"
-    );
+    if (/patent/i.test(text)) return "PATENT";
+    if (/isbn/i.test(text) || /\b(book|chapter)\b/i.test(text)) return "BOOK";
+    if (p.conference || /conference|proceedings|symposium|workshop|ieee|acm/i.test(text)) return "CONFERENCE";
+    if (p.journal || /journal|transactions|letters/i.test(text)) return "JOURNAL";
+    return "OTHER";
   };
 
   const journalPubs = pubsList.filter((p) => getVenueType(p) === "JOURNAL");
@@ -680,6 +685,37 @@ export function FacultyProfileCard() {
                 <ChevronRight className="h-4 w-4 text-[#64748B]" />
               </div>
             </div>
+
+            {/* Google Drive Research Vault Folder */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer" onClick={handleStartEdit}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center shrink-0">
+                  <span className="text-sm">📁</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-xs text-[#102A43]">Google Drive Research Vault</p>
+                  <p className="text-[10px] text-[#64748B] truncate mt-0.5 font-mono">{identity.googleDriveFolderUrl || "Add your Google Drive documents folder link"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {identity.googleDriveFolderUrl ? (
+                  <a
+                    href={identity.googleDriveFolderUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded text-blue-600 hover:bg-blue-50"
+                    title="Open Google Drive Folder"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold tracking-wide uppercase ${identity.googleDriveFolderUrl ? "bg-[#EAF6EF] text-[#238B57]" : "bg-slate-100 text-slate-500"}`}>
+                  {identity.googleDriveFolderUrl ? "Linked" : "Not connected"}
+                </span>
+                <ChevronRight className="h-4 w-4 text-[#64748B]" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -855,8 +891,13 @@ export function FacultyProfileCard() {
                 <div className="flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
                   <span className="font-semibold text-[#102A43]">{p.journal || p.conference || "Institutional Publication"} ({p.publicationYear})</span>
                   {p.doi && (
-                    <a href={`https://doi.org/${p.doi}`} target="_blank" rel="noreferrer" className="text-[#102A43] hover:underline font-mono text-[11px] flex items-center gap-1">
-                      doi:{p.doi} <ExternalLink className="h-3 w-3" />
+                    <a href={`https://doi.org/${p.doi.replace(/^https?:\/\/doi\.org\//, "")}`} target="_blank" rel="noreferrer" className="text-[#102A43] hover:underline font-mono text-[11px] flex items-center gap-1">
+                      doi:{p.doi.replace(/^https?:\/\/doi\.org\//, "")} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  {p.pdfUrl && (
+                    <a href={p.pdfUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-[11px] font-semibold flex items-center gap-1">
+                      📁 Document / Google Drive <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
                 </div>

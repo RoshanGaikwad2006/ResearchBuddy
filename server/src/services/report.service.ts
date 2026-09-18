@@ -134,10 +134,11 @@ export class ReportService {
 
     // Dedicated Faculty-Wise Google Scholar & Research Totals Report (Total for each faculty, not paper-wise)
     const isFacultyTotalsQuery =
-      payload.reportType === "SCHOLAR_RESEARCHER" ||
-      payload.reportType === "FACULTY_PUBLICATION" ||
       payload.viewMode === "FACULTY_TOTALS" ||
-      grouping === "faculty";
+      (payload.viewMode !== "PAPER_WISE" &&
+        (payload.reportType === "SCHOLAR_RESEARCHER" ||
+          payload.reportType === "FACULTY_PUBLICATION" ||
+          grouping === "faculty"));
 
     if (isFacultyTotalsQuery) {
       const facultyWhere: any = {};
@@ -294,16 +295,16 @@ export class ReportService {
       // Faculty scope: If department specified, check access or filter by own department / own creations
       const faculty = await prisma.faculty.findUnique({ where: { userId: user.id } });
       if (faculty) {
-        if (departmentId && departmentId !== faculty.departmentId) {
+        if (departmentId && departmentId !== "ALL" && departmentId !== faculty.departmentId) {
           where.departmentId = departmentId;
           where.status = "PUBLISHED";
-        } else if (departmentId) {
+        } else if (departmentId && departmentId !== "ALL") {
           where.departmentId = departmentId;
         }
-      } else if (departmentId) {
+      } else if (departmentId && departmentId !== "ALL") {
         where.departmentId = departmentId;
       }
-      if (facultyId) {
+      if (facultyId && facultyId !== "ALL") {
         const targetFac = await prisma.faculty.findUnique({ where: { id: facultyId } });
         if (targetFac) {
           where.OR = [
@@ -316,8 +317,8 @@ export class ReportService {
       }
     } else if (user.role === "ADMIN" || user.role === "RESEARCH_CELL") {
       // Admin and Research Cell have full access
-      if (departmentId) where.departmentId = departmentId;
-      if (facultyId) {
+      if (departmentId && departmentId !== "ALL") where.departmentId = departmentId;
+      if (facultyId && facultyId !== "ALL") {
         const targetFac = await prisma.faculty.findUnique({ where: { id: facultyId } });
         if (targetFac) {
           where.OR = [
@@ -650,9 +651,9 @@ export class ReportService {
     };
 
     const isFacultyTotals =
-      reportTitle.toLowerCase().includes("scholar") ||
-      reportTitle.toLowerCase().includes("faculty") ||
-      (reportData.records?.length > 0 && reportData.records[0]?.facultyName && !reportData.records[0]?.journal);
+      reportData.records?.length > 0
+        ? Boolean(reportData.records[0]?.publicationCount !== undefined && !reportData.records[0]?.journal)
+        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("scholar"));
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
@@ -671,14 +672,18 @@ export class ReportService {
         ]
       : [
           { key: "slNo", label: "Sl. No." },
-          { key: "title", label: "Paper Title" },
-          { key: "authors", label: "Author(s)" },
+          { key: "facultyName", label: "Faculty Name" },
+          { key: "employeeId", label: "Employee ID" },
           { key: "department", label: "Department" },
+          { key: "title", label: "Paper Title" },
+          { key: "primaryAuthor", label: "Primary Author" },
+          { key: "coAuthors", label: "Co-Author(s)" },
+          { key: "authors", label: "All Authors" },
           { key: "journal", label: "Journal / Conference" },
-          { key: "publicationYear", label: "Year" },
+          { key: "venueType", label: "Venue Type" },
+          { key: "publicationYear", label: "Publication Year" },
           { key: "citationCount", label: "Citations" },
-          { key: "abstractSource", label: "Source Tag" },
-          { key: "doi", label: "DOI" },
+          { key: "doi", label: "DOI Handle" },
           { key: "status", label: "Status" },
         ];
 
@@ -747,9 +752,9 @@ export class ReportService {
     };
 
     const isFacultyTotals =
-      reportTitle.toLowerCase().includes("scholar") ||
-      reportTitle.toLowerCase().includes("faculty") ||
-      (reportData.records?.length > 0 && reportData.records[0]?.facultyName && !reportData.records[0]?.journal);
+      reportData.records?.length > 0
+        ? Boolean(reportData.records[0]?.publicationCount !== undefined && !reportData.records[0]?.journal)
+        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("scholar"));
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
@@ -768,12 +773,15 @@ export class ReportService {
         ]
       : [
           { key: "slNo", label: "Sl." },
+          { key: "facultyName", label: "Faculty Name" },
           { key: "title", label: "Title of Paper & Abstract" },
-          { key: "authors", label: "Author(s)" },
+          { key: "primaryAuthor", label: "Primary Author" },
+          { key: "coAuthors", label: "Co-Author(s)" },
           { key: "department", label: "Department" },
           { key: "journal", label: "Journal / Conference" },
           { key: "publicationYear", label: "Year" },
           { key: "citationCount", label: "Citations" },
+          { key: "doi", label: "DOI Handle" },
           { key: "status", label: "Status" },
         ];
 
@@ -935,6 +943,22 @@ export class ReportService {
               }
               if (c.key === "authors") {
                 return `<td>${row.authorsHtml || row.authors || "—"}</td>`;
+              }
+              if (c.key === "primaryAuthor") {
+                return `<td><span style="font-weight:600; color:#1e3a8a;">${row.primaryAuthor || "—"}</span></td>`;
+              }
+              if (c.key === "coAuthors") {
+                return `<td><span style="color:#475569; font-size:9.5px;">${row.coAuthors || "—"}</span></td>`;
+              }
+              if (c.key === "facultyName") {
+                return `<td><strong style="color:#0f172a;">${row.facultyName || "—"}</strong></td>`;
+              }
+              if (c.key === "doi" || c.key === "issnDoi") {
+                const cleanDoi = row.doi && row.doi !== "N/A" && row.doi.trim() !== "" ? row.doi.replace(/^https?:\/\/doi\.org\//, "").trim() : null;
+                if (cleanDoi) {
+                  return `<td><a href="https://doi.org/${cleanDoi}" target="_blank" style="color:#2563eb; text-decoration:underline; font-family:monospace; font-size:10px; font-weight:bold;">doi:${cleanDoi} ↗</a></td>`;
+                }
+                return `<td><span style="color:#94a3b8;">—</span></td>`;
               }
               if (c.key === "citationCount") {
                 return `<td><strong style="color:#d97706;">🎓 ${row.citationCount || 0}</strong></td>`;

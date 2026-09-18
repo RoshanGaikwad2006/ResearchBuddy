@@ -1,5 +1,5 @@
 import { prisma } from "../../config/db.js";
-import { GoogleScholarService } from "./googleScholar.service.js";
+import { GoogleScholarService, extractPublicationYear } from "./googleScholar.service.js";
 import { OpenAlexService } from "../../services/openalex.service.js";
 import { CrossrefService } from "../../services/crossref.service.js";
 import { ScholarNormalizationService } from "./scholarNormalization.service.js";
@@ -311,7 +311,7 @@ export class ScholarSyncAgent {
             doi: resolvedDoi || undefined,
             venue: pub.journal || pub.conference || undefined,
             citationCount: pub.citationCount,
-            publicationYear: pub.year,
+            publicationYear: extractPublicationYear(pub.year, pub.journal || pub.conference, pub.snippet, pub.title),
           },
         });
 

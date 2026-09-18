@@ -62,7 +62,10 @@ export const syncMyResearchProfile = async (req: AuthenticatedRequest, res: Resp
     }
 
     const faculty = await FacultyService.getByUserId(req.user.id);
-    const syncItem = await ScholarSyncAgent.syncSingleFaculty(faculty.id, { triggerType: "MANUAL_FACULTY" });
+    const syncItem = await ScholarSyncAgent.syncSingleFaculty(faculty.id, {
+      triggerType: "MANUAL_FACULTY",
+      force: true,
+    });
     res.status(200).json({ message: "Synchronization completed successfully", item: syncItem });
   } catch (error: any) {
     res.status(500).json({ message: error.message || "Failed to sync research profile" });

@@ -13,13 +13,18 @@ import { getGoogleScholarUrl } from "@/utils/scholarLink";
 const ITEMS_PER_PAGE = 12;
 
 const getPublicationType = (p: ResearchItem): "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER" => {
-  const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
-  if (p.venueType === "PATENT" || /patent/i.test(text) || !!p.patentNumber) return "PATENT";
-  if (p.venueType === "BOOK" || /isbn/i.test(text) || !!p.isbn) return "BOOK";
-  if (p.venueType === "CONFERENCE" || (!!p.conference && !p.journal)) return "CONFERENCE";
-  if (p.venueType === "JOURNAL" || (!!p.journal && !p.conference)) return "JOURNAL";
+  if (p.venueType === "PATENT" || !!p.patentNumber) return "PATENT";
+  if (p.venueType === "BOOK" || !!p.isbn) return "BOOK";
+  if (p.venueType === "CONFERENCE") return "CONFERENCE";
   if (p.venueType === "OTHER") return "OTHER";
-  return p.conference ? "CONFERENCE" : "JOURNAL";
+  if (p.venueType === "JOURNAL") return "JOURNAL";
+
+  const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+  if (/patent/i.test(text)) return "PATENT";
+  if (/isbn/i.test(text) || /\b(book|chapter)\b/i.test(text)) return "BOOK";
+  if (p.conference || /conference|proceedings|symposium|workshop|ieee|acm/i.test(text)) return "CONFERENCE";
+  if (p.journal || /journal|transactions|letters/i.test(text)) return "JOURNAL";
+  return "OTHER";
 };
 
 export function MyPublicationsView() {
@@ -31,6 +36,7 @@ export function MyPublicationsView() {
   // Filters
   const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
   const [statusFilter, setStatusFilter] = useState<ResearchStatusType | "ALL">("ALL");
+  const [yearFilter, setYearFilter] = useState<string>("ALL");
 
   // Fetch user portfolio with sufficient limit to allow full client-side category classification & search
   const { data, isLoading } = useMyResearchList({
@@ -49,6 +55,11 @@ export function MyPublicationsView() {
     OTHER: allPublications.filter((p) => getPublicationType(p) === "OTHER").length,
   };
 
+  // Available publication years for year filter
+  const availableYears = Array.from(
+    new Set(allPublications.map((p) => p.publicationYear).filter(Boolean))
+  ).sort((a, b) => b - a);
+
   // Filter across all publications generally
   const filteredPublications = allPublications.filter((p) => {
     // 1. Status Filter
@@ -58,6 +69,11 @@ export function MyPublicationsView() {
 
     // 2. Category / Venue Filter
     if (venueFilter !== "ALL" && getPublicationType(p) !== venueFilter) {
+      return false;
+    }
+
+    // 3. Year Filter
+    if (yearFilter !== "ALL" && String(p.publicationYear) !== yearFilter) {
       return false;
     }
 
@@ -183,20 +199,42 @@ export function MyPublicationsView() {
         </Button>
       </div>
 
-      {/* Filter Toolbar & Search */}
+      {/* Filter Toolbar & Search & Year */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 rounded-2xl border border-border bg-card shadow-xs">
-        {/* Search Bar */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search my titles, patents, ISBN, or keywords..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9 h-9 text-xs"
-          />
+        <div className="flex flex-1 items-center gap-3 flex-wrap">
+          {/* Search Bar */}
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search my titles, patents, ISBN, or keywords..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+
+          {/* Year Filter Dropdown */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground">Year:</span>
+            <select
+              value={yearFilter}
+              onChange={(e) => {
+                setYearFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="ALL">All Years ({allPublications.length})</option>
+              {availableYears.map((yr) => (
+                <option key={yr} value={String(yr)}>
+                  {yr}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* 6 Category Filter Tabs with dynamic counts */}
@@ -398,9 +436,9 @@ export function MyPublicationsView() {
                   </span>
                 </div>
 
-                {/* View Details & Direct Google Scholar Links */}
+                {/* View Details & Direct Google Scholar Links & Google Drive Link */}
                 <div className="pt-2 flex items-center justify-between gap-2 border-t border-border/40 mt-1">
-                  <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center gap-1.5 flex-wrap truncate">
                     <a
                       href={getGoogleScholarUrl(pub)}
                       target="_blank"
@@ -413,7 +451,7 @@ export function MyPublicationsView() {
 
                     {pub.doi && (
                       <a
-                        href={`https://doi.org/${pub.doi}`}
+                        href={`https://doi.org/${pub.doi.replace(/^https?:\/\/doi\.org\//, "")}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[10px] font-medium text-emerald-600 hover:underline flex items-center gap-1 truncate"
@@ -421,6 +459,27 @@ export function MyPublicationsView() {
                       >
                         <ExternalLink className="h-3 w-3 shrink-0" /> DOI
                       </a>
+                    )}
+
+                    {pub.pdfUrl ? (
+                      <a
+                        href={pub.pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10.5px] font-semibold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded shrink-0 transition-colors"
+                        title="Open Paper Document / Google Drive File"
+                      >
+                        📁 Drive Document <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedResearch(pub)}
+                        className="text-[10px] text-muted-foreground hover:text-primary hover:underline flex items-center gap-0.5 py-0.5 px-1 rounded hover:bg-muted/50 transition-colors"
+                        title="Attach Google Drive Link"
+                      >
+                        + Drive Link
+                      </button>
                     )}
                   </div>
 
