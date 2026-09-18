@@ -1,7 +1,29 @@
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) || "http://localhost:5000/api";
+const DEFAULT_PROD_API_URL = "https://researchbuddy-c9ls.onrender.com/api";
+const DEFAULT_DEV_API_URL = "http://localhost:5000/api";
+
+const resolveApiBaseUrl = (): string => {
+  const envUrl = import.meta.env["VITE_API_BASE_URL"] as string | undefined;
+
+  if (typeof window !== "undefined") {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    if (!isLocalhost) {
+      if (!envUrl || envUrl.includes("localhost") || envUrl.includes("127.0.0.1")) {
+        return DEFAULT_PROD_API_URL;
+      }
+      return envUrl;
+    }
+  }
+
+  return envUrl || DEFAULT_DEV_API_URL;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const TOKEN_STORAGE_KEY = "kriya_access_token";
 
 // SSR-Safe localStorage helpers
@@ -32,9 +54,23 @@ export const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Automatically inject Authorization header
+// Request Interceptor: Automatically inject Authorization header and ensure prod baseURL
 apiClient.interceptors.request.use(
   (config) => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      if (
+        !config.baseURL ||
+        config.baseURL.includes("localhost") ||
+        config.baseURL.includes("127.0.0.1")
+      ) {
+        config.baseURL = DEFAULT_PROD_API_URL;
+      }
+    }
+
     const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
