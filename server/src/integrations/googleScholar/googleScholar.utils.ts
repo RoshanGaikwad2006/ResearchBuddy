@@ -5,7 +5,13 @@ export const extractScholarAuthorId = (input: string): string => {
 
   const trimmed = input.trim();
 
-  // If full URL provided, extract 'user' query parameter
+  // Extract 'user' query parameter if present anywhere in input
+  const userQueryMatch = trimmed.match(/[?&]?user=([a-zA-Z0-9_-]+)/);
+  if (userQueryMatch && userQueryMatch[1]) {
+    return userQueryMatch[1];
+  }
+
+  // If full URL provided, try standard URL parser
   if (trimmed.includes("scholar.google")) {
     try {
       const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
@@ -14,12 +20,7 @@ export const extractScholarAuthorId = (input: string): string => {
         return userParam;
       }
     } catch {
-      // Fall through to regex match
-    }
-
-    const match = trimmed.match(/user=([a-zA-Z0-9_-]+)/);
-    if (match && match[1]) {
-      return match[1];
+      // Fall through to raw author ID
     }
   }
 

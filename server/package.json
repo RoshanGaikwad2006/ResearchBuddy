@@ -10,7 +10,9 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:db:push": "prisma db push",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test:verify": "tsx src/tests/verify_scholar_and_reports.ts",
+    "test:all": "tsx src/tests/run_all_tests.ts"
   },
   "dependencies": {
     "@langchain/community": "^1.1.29",

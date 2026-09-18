@@ -652,8 +652,8 @@ export class ReportService {
 
     const isFacultyTotals =
       reportData.records?.length > 0
-        ? Boolean(reportData.records[0]?.publicationCount !== undefined && !reportData.records[0]?.journal)
-        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("scholar"));
+        ? reportData.records[0]?.venueType === "Academic Profile"
+        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("faculty-wise") || reportTitle.toLowerCase().includes("scholar totals"));
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
@@ -753,8 +753,8 @@ export class ReportService {
 
     const isFacultyTotals =
       reportData.records?.length > 0
-        ? Boolean(reportData.records[0]?.publicationCount !== undefined && !reportData.records[0]?.journal)
-        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("scholar"));
+        ? reportData.records[0]?.venueType === "Academic Profile"
+        : (reportTitle.toLowerCase().includes("totals") || reportTitle.toLowerCase().includes("faculty-wise") || reportTitle.toLowerCase().includes("scholar totals"));
 
     const activeCols = columns.length > 0
       ? columns.map((key) => ({ key, label: ALL_COLUMN_MAP[key] || key }))
