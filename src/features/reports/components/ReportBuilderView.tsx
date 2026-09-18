@@ -756,20 +756,40 @@ export function ReportBuilderView() {
               <div className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-4">
                   <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                    <p className="text-xs text-muted-foreground font-medium">Total Publications</p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {viewMode === "FACULTY_TOTALS" ? "Total Faculty Members" : "Total Publications"}
+                    </p>
                     <p className="text-2xl font-bold text-foreground mt-1">{previewData.total}</p>
                   </div>
                   <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                    <p className="text-xs text-muted-foreground font-medium">Total Citations</p>
-                    <p className="text-2xl font-bold text-primary mt-1">{previewData.summary.totalCitations}</p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {viewMode === "FACULTY_TOTALS" ? "Total Publications (All Faculty)" : "Total Citations"}
+                    </p>
+                    <p className="text-2xl font-bold text-primary mt-1">
+                      {viewMode === "FACULTY_TOTALS"
+                        ? (previewData.summary?.totalPublications ?? previewData.total)
+                        : previewData.summary.totalCitations}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                    <p className="text-xs text-muted-foreground font-medium">Avg Citations / Paper</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{previewData.summary.avgCitations}</p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {viewMode === "FACULTY_TOTALS" ? "Total Citations" : "Avg Citations / Paper"}
+                    </p>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {viewMode === "FACULTY_TOTALS"
+                        ? previewData.summary.totalCitations
+                        : previewData.summary.avgCitations}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-                    <p className="text-xs text-muted-foreground font-medium">Published Count</p>
-                    <p className="text-2xl font-bold text-emerald-600 mt-1">{previewData.summary.publishedCount}</p>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {viewMode === "FACULTY_TOTALS" ? "Avg Citations / Paper" : "Published Count"}
+                    </p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">
+                      {viewMode === "FACULTY_TOTALS"
+                        ? previewData.summary.avgCitations
+                        : previewData.summary.publishedCount}
+                    </p>
                   </div>
                 </div>
 
