@@ -10,6 +10,18 @@ import type { ResearchItem, ResearchStatusType } from "@/services/research.servi
 import { parseAuthorRoles } from "@/utils/authorFormatter";
 import { getGoogleScholarUrl } from "@/utils/scholarLink";
 
+const ITEMS_PER_PAGE = 12;
+
+const getPublicationType = (p: ResearchItem): "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER" => {
+  const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
+  if (p.venueType === "PATENT" || /patent/i.test(text) || !!p.patentNumber) return "PATENT";
+  if (p.venueType === "BOOK" || /isbn/i.test(text) || !!p.isbn) return "BOOK";
+  if (p.venueType === "CONFERENCE" || (!!p.conference && !p.journal)) return "CONFERENCE";
+  if (p.venueType === "JOURNAL" || (!!p.journal && !p.conference)) return "JOURNAL";
+  if (p.venueType === "OTHER") return "OTHER";
+  return p.conference ? "CONFERENCE" : "JOURNAL";
+};
+
 export function MyPublicationsView() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -20,32 +32,62 @@ export function MyPublicationsView() {
   const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
   const [statusFilter, setStatusFilter] = useState<ResearchStatusType | "ALL">("ALL");
 
+  // Fetch user portfolio with sufficient limit to allow full client-side category classification & search
   const { data, isLoading } = useMyResearchList({
-    search: search || undefined,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    page,
-    limit: 12,
+    limit: 200,
   });
 
-  const rawPublications = data?.items || [];
-  const pagination = data?.pagination || { total: 0, page: 1, totalPages: 1 };
+  const allPublications = data?.items || [];
 
-  // Apply Venue Type Filtering (Journals vs Conferences vs Patents vs Books)
-  const publications = rawPublications.filter((p) => {
-    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
-    const type = p.venueType || (
-      /patent/i.test(text) ? "PATENT" :
-      /isbn/i.test(text) ? "BOOK" :
-      p.conference ? "CONFERENCE" : "JOURNAL"
-    );
+  // Dynamically compute real counts for every category across all publications
+  const categoryCounts = {
+    ALL: allPublications.length,
+    JOURNAL: allPublications.filter((p) => getPublicationType(p) === "JOURNAL").length,
+    CONFERENCE: allPublications.filter((p) => getPublicationType(p) === "CONFERENCE").length,
+    PATENT: allPublications.filter((p) => getPublicationType(p) === "PATENT").length,
+    BOOK: allPublications.filter((p) => getPublicationType(p) === "BOOK").length,
+    OTHER: allPublications.filter((p) => getPublicationType(p) === "OTHER").length,
+  };
 
-    if (venueFilter === "JOURNAL") return type === "JOURNAL" || (!!p.journal && !p.conference && type !== "PATENT" && type !== "BOOK");
-    if (venueFilter === "CONFERENCE") return type === "CONFERENCE" || (!!p.conference && !p.journal && type !== "PATENT" && type !== "BOOK");
-    if (venueFilter === "PATENT") return type === "PATENT" || /patent/i.test(text);
-    if (venueFilter === "BOOK") return type === "BOOK" || /isbn/i.test(text);
-    if (venueFilter === "OTHER") return type === "OTHER";
+  // Filter across all publications generally
+  const filteredPublications = allPublications.filter((p) => {
+    // 1. Status Filter
+    if (statusFilter !== "ALL" && p.status !== statusFilter) {
+      return false;
+    }
+
+    // 2. Category / Venue Filter
+    if (venueFilter !== "ALL" && getPublicationType(p) !== venueFilter) {
+      return false;
+    }
+
+    // 3. Search Query Filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matches =
+        p.title?.toLowerCase().includes(q) ||
+        p.abstract?.toLowerCase().includes(q) ||
+        p.journal?.toLowerCase().includes(q) ||
+        p.conference?.toLowerCase().includes(q) ||
+        p.patentNumber?.toLowerCase().includes(q) ||
+        p.isbn?.toLowerCase().includes(q) ||
+        p.authors?.some((a) => a.authorName?.toLowerCase().includes(q));
+
+      if (!matches) return false;
+    }
+
     return true;
   });
+
+  // Client-side pagination over filtered results
+  const totalFiltered = filteredPublications.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / ITEMS_PER_PAGE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const publications = filteredPublications.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -81,31 +123,33 @@ export function MyPublicationsView() {
   };
 
   const getVenueBadge = (p: ResearchItem) => {
-    const text = `${p.title || ""} ${p.journal || ""} ${p.conference || ""}`.toLowerCase();
-    const type = p.venueType || (
-      /patent/i.test(text) ? "PATENT" :
-      /isbn/i.test(text) ? "BOOK" :
-      p.conference ? "CONFERENCE" : "JOURNAL"
-    );
+    const type = getPublicationType(p);
 
-    if (type === "PATENT" || /patent/i.test(text)) {
+    if (type === "PATENT") {
       return (
         <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1 font-semibold">
           <Award className="h-3 w-3" /> Patent {p.patentNumber ? `— ${p.patentNumber}` : ""}
         </Badge>
       );
     }
-    if (type === "BOOK" || /isbn/i.test(text)) {
+    if (type === "BOOK") {
       return (
         <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 gap-1 font-semibold">
           <Book className="h-3 w-3" /> Book / ISBN {p.isbn ? `— ${p.isbn}` : ""}
         </Badge>
       );
     }
-    if (type === "CONFERENCE" || p.conference) {
+    if (type === "CONFERENCE") {
       return (
         <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 gap-1 font-semibold">
           <Layers className="h-3 w-3" /> Conference
+        </Badge>
+      );
+    }
+    if (type === "OTHER") {
+      return (
+        <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-600 border-slate-500/30 gap-1 font-semibold">
+          <FileText className="h-3 w-3" /> Other
         </Badge>
       );
     }
@@ -123,9 +167,9 @@ export function MyPublicationsView() {
         <div>
           <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
             My Publications & Portfolio
-            {pagination.total > 0 && (
+            {allPublications.length > 0 && (
               <Badge variant="secondary" className="font-mono text-xs">
-                {pagination.total} Total
+                {allPublications.length} Total
               </Badge>
             )}
           </h2>
@@ -155,61 +199,79 @@ export function MyPublicationsView() {
           />
         </div>
 
-        {/* 6 Category Filter Tabs */}
+        {/* 6 Category Filter Tabs with dynamic counts */}
         <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-semibold overflow-x-auto">
           <button
             type="button"
-            onClick={() => setVenueFilter("ALL")}
+            onClick={() => {
+              setVenueFilter("ALL");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
-              venueFilter === "ALL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              venueFilter === "ALL" ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            All ({rawPublications.length})
+            All ({categoryCounts.ALL})
           </button>
           <button
             type="button"
-            onClick={() => setVenueFilter("JOURNAL")}
+            onClick={() => {
+              setVenueFilter("JOURNAL");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
-              venueFilter === "JOURNAL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              venueFilter === "JOURNAL" ? "bg-card text-emerald-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <BookOpen className="h-3.5 w-3.5 text-emerald-600" /> Journals
+            <BookOpen className="h-3.5 w-3.5 text-emerald-600" /> Journals ({categoryCounts.JOURNAL})
           </button>
           <button
             type="button"
-            onClick={() => setVenueFilter("CONFERENCE")}
+            onClick={() => {
+              setVenueFilter("CONFERENCE");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
-              venueFilter === "CONFERENCE" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              venueFilter === "CONFERENCE" ? "bg-card text-indigo-500 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Layers className="h-3.5 w-3.5 text-indigo-500" /> Conferences
+            <Layers className="h-3.5 w-3.5 text-indigo-500" /> Conferences ({categoryCounts.CONFERENCE})
           </button>
           <button
             type="button"
-            onClick={() => setVenueFilter("PATENT")}
+            onClick={() => {
+              setVenueFilter("PATENT");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
               venueFilter === "PATENT" ? "bg-card text-amber-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Award className="h-3.5 w-3.5 text-amber-500" /> Patents
+            <Award className="h-3.5 w-3.5 text-amber-500" /> Patents ({categoryCounts.PATENT})
           </button>
           <button
             type="button"
-            onClick={() => setVenueFilter("BOOK")}
+            onClick={() => {
+              setVenueFilter("BOOK");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
               venueFilter === "BOOK" ? "bg-card text-purple-600 shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Book className="h-3.5 w-3.5 text-purple-500" /> Books & ISBN
+            <Book className="h-3.5 w-3.5 text-purple-500" /> Books & ISBN ({categoryCounts.BOOK})
           </button>
           <button
             type="button"
-            onClick={() => setVenueFilter("OTHER")}
+            onClick={() => {
+              setVenueFilter("OTHER");
+              setPage(1);
+            }}
             className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 whitespace-nowrap ${
-              venueFilter === "OTHER" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              venueFilter === "OTHER" ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <FileText className="h-3.5 w-3.5 text-slate-500" /> Others
+            <FileText className="h-3.5 w-3.5 text-slate-500" /> Others ({categoryCounts.OTHER})
           </button>
         </div>
       </div>
@@ -378,16 +440,16 @@ export function MyPublicationsView() {
       )}
 
       {/* Pagination Bar */}
-      {pagination.totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2 text-xs">
           <span className="text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages} ({pagination.total} total items)
+            Page {safePage} of {totalPages} ({totalFiltered} total {venueFilter === "ALL" ? "items" : venueFilter.toLowerCase() + "s"})
           </span>
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
-              disabled={page <= 1}
+              disabled={safePage <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="h-8 px-2"
             >
@@ -396,8 +458,8 @@ export function MyPublicationsView() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               className="h-8 px-2"
             >
               Next <ChevronRight className="h-4 w-4" />
