@@ -141,19 +141,30 @@ export class ReportService {
           grouping === "faculty"));
 
     if (isFacultyTotalsQuery) {
-      const facultyWhere: any = {};
+      const facultyWhere: any = {
+        user: {
+          role: "FACULTY",
+          name: { not: "Platform Administrator" },
+        },
+      };
       if (departmentId && departmentId !== "ALL") facultyWhere.departmentId = departmentId;
       if (facultyId && facultyId !== "ALL") facultyWhere.id = facultyId;
       if (citationMin && citationMin > 0) {
         facultyWhere.totalCitations = { gte: Number(citationMin) };
       }
       if (search) {
-        facultyWhere.OR = [
-          { user: { name: { contains: search, mode: "insensitive" } } },
-          { user: { email: { contains: search, mode: "insensitive" } } },
-          { employeeId: { contains: search, mode: "insensitive" } },
-          { department: { name: { contains: search, mode: "insensitive" } } },
+        facultyWhere.AND = [
+          { user: { role: "FACULTY", name: { not: "Platform Administrator" } } },
+          {
+            OR: [
+              { user: { name: { contains: search, mode: "insensitive" } } },
+              { user: { email: { contains: search, mode: "insensitive" } } },
+              { employeeId: { contains: search, mode: "insensitive" } },
+              { department: { name: { contains: search, mode: "insensitive" } } },
+            ],
+          },
         ];
+        delete facultyWhere.user;
       }
 
       const totalFaculty = await prisma.faculty.count({ where: facultyWhere });
@@ -553,9 +564,19 @@ export class ReportService {
         authorsHtml,
         primaryAuthor: primaryAuthorStr,
         coAuthors: coAuthorsStr,
-        facultyName: primaryFaculty ? primaryFaculty.user.name : (item.createdBy.name || "N/A"),
-        employeeId: primaryFaculty ? primaryFaculty.employeeId : "N/A",
-        email: primaryFaculty?.user?.email || item.createdBy?.email || "N/A",
+        facultyName: (primaryFaculty && primaryFaculty.user.name !== "Platform Administrator")
+          ? primaryFaculty.user.name
+          : (item.createdBy.name && item.createdBy.name !== "Platform Administrator")
+          ? item.createdBy.name
+          : primaryAuthorStr,
+        employeeId: (primaryFaculty && primaryFaculty.user.name !== "Platform Administrator")
+          ? primaryFaculty.employeeId
+          : "N/A",
+        email: (primaryFaculty && primaryFaculty.user.name !== "Platform Administrator")
+          ? primaryFaculty.user.email
+          : (item.createdBy.name && item.createdBy.name !== "Platform Administrator")
+          ? (item.createdBy.email || "N/A")
+          : "N/A",
         hIndex: primaryFaculty?.hIndex ?? 0,
         i10Index: primaryFaculty?.i10Index ?? 0,
         totalCitations: primaryFaculty?.totalCitations ?? item.citationCount ?? 0,
