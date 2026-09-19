@@ -8,9 +8,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X, FolderGit2, Calendar } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X, FolderGit2, Calendar, CalendarRange } from "lucide-react";
 import type { ResearchItem, ResearchAuthorItem } from "@/services/research.service";
-import { updateResearchApi } from "@/services/research.service";
+import { updateResearchApi, updateResearchDatesApi } from "@/services/research.service";
 import { updateAuthorAffiliationApi } from "@/services/faculty.service";
 import { getGoogleScholarUrl } from "@/utils/scholarLink";
 import { formatPublicationDate } from "@/utils/formatDate";
@@ -22,6 +24,7 @@ interface ResearchDetailModalProps {
 }
 
 export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDetailModalProps) {
+  const queryClient = useQueryClient();
   const [editingAuthorId, setEditingAuthorId] = useState<string | null>(null);
   const [affiliationInput, setAffiliationInput] = useState<string>("");
   const [isSavingAffiliation, setIsSavingAffiliation] = useState(false);
@@ -32,14 +35,42 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
   const [pdfUrlInput, setPdfUrlInput] = useState<string>("");
   const [isSavingPdfUrl, setIsSavingPdfUrl] = useState(false);
 
+  // Calendar Dates State (Publication Date & Conference Date)
+  const [pubDateInput, setPubDateInput] = useState<string>("");
+  const [confDateInput, setConfDateInput] = useState<string>("");
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [isSavingDates, setIsSavingDates] = useState(false);
+
+  const toDateInputValue = (d?: string | null) => {
+    if (!d) return "";
+    const clean = d.trim().replace(/\//g, "-");
+    const m = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) {
+      return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+    }
+    const my = clean.match(/^(\d{4})-(\d{1,2})/);
+    if (my) {
+      return `${my[1]}-${my[2].padStart(2, "0")}-01`;
+    }
+    return "";
+  };
+
   // Re-initialize state whenever selected research paper changes
   useEffect(() => {
-    if (research && research.authors) {
-      const sorted = [...research.authors].sort((a, b) => (a.authorOrder || 1) - (b.authorOrder || 1));
-      setAuthorsList(sorted);
+    if (research) {
+      if (research.authors) {
+        const sorted = [...research.authors].sort((a, b) => (a.authorOrder || 1) - (b.authorOrder || 1));
+        setAuthorsList(sorted);
+      } else {
+        setAuthorsList([]);
+      }
       setEditingAuthorId(null);
       setPdfUrlInput(research.pdfUrl || "");
       setIsEditingPdfUrl(false);
+
+      setPubDateInput(toDateInputValue(research.publicationDate) || (research.publicationYear ? `${research.publicationYear}-01-01` : ""));
+      setConfDateInput(toDateInputValue(research.conferenceDate) || "");
+      setIsEditingDates(false);
     } else {
       setAuthorsList([]);
     }
@@ -95,6 +126,40 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
       console.error("Failed to update author affiliation:", err);
     } finally {
       setIsSavingAffiliation(false);
+    }
+  };
+
+  const handleSaveDates = async () => {
+    if (!research) return;
+    try {
+      setIsSavingDates(true);
+      const pubYear = pubDateInput ? parseInt(pubDateInput.substring(0, 4), 10) : undefined;
+      const res = await updateResearchDatesApi(research.id, {
+        publicationDate: pubDateInput || undefined,
+        conferenceDate: confDateInput || undefined,
+        publicationYear: pubYear,
+      });
+
+      research.publicationDate = res.research.publicationDate;
+      research.conferenceDate = res.research.conferenceDate;
+      if (res.research.publicationYear) {
+        research.publicationYear = res.research.publicationYear;
+      }
+
+      toast.success("Dates updated successfully", {
+        description: `Publication date: ${formatPublicationDate(research.publicationDate, research.publicationYear)}`,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["researches"] });
+      queryClient.invalidateQueries({ queryKey: ["my-researches"] });
+      queryClient.invalidateQueries({ queryKey: ["research-detail", research.id] });
+      setIsEditingDates(false);
+    } catch (err: any) {
+      toast.error("Failed to update dates", {
+        description: err?.response?.data?.message || err?.message || "Error saving dates.",
+      });
+    } finally {
+      setIsSavingDates(false);
     }
   };
 
@@ -340,6 +405,127 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
                 {formatPublicationDate(research.publicationDate, research.publicationYear)}
               </p>
             </div>
+
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Conference Date:</span>
+                <Badge variant="outline" className="text-[9px] text-indigo-700 bg-indigo-500/10 border-indigo-500/30">
+                  {research.conferenceDate ? "✓ Scheduled/Held" : "Not Set"}
+                </Badge>
+              </div>
+              <p className="font-semibold text-foreground mt-0.5 flex items-center gap-1.5">
+                <CalendarRange className="h-3.5 w-3.5 text-indigo-600" />
+                {research.conferenceDate ? formatPublicationDate(research.conferenceDate) : "None"}
+              </p>
+            </div>
+          </div>
+
+          {/* INTERACTIVE CALENDAR DATE PICKER CARD */}
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-xs text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                <Calendar className="h-4 w-4 text-blue-600" />
+                Publication & Conference Dates (Calendar Picker)
+              </div>
+              {!isEditingDates && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingDates(true)}
+                  className="h-6 px-2 text-[10px] text-blue-700 hover:bg-blue-500/10 gap-1 font-bold"
+                >
+                  <Pencil className="h-3 w-3" /> Edit Dates (Calendar)
+                </Button>
+              )}
+            </div>
+
+            {isEditingDates ? (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Pick the exact date from the calendar. For conference proceedings, you can specify both the publication date and the conference date:
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                      Date of Publication
+                    </label>
+                    <Input
+                      type="date"
+                      value={pubDateInput}
+                      onChange={(e) => setPubDateInput(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Sets exact publication date & updates year</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                      <CalendarRange className="h-3.5 w-3.5 text-indigo-600" />
+                      Date of Conference (Optional)
+                    </label>
+                    <Input
+                      type="date"
+                      value={confDateInput}
+                      onChange={(e) => setConfDateInput(e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                    <span className="text-[10px] text-muted-foreground">Date when conference was conducted</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveDates}
+                    disabled={isSavingDates}
+                    className="h-8 px-3 text-xs gap-1"
+                  >
+                    <Check className="h-3.5 w-3.5" /> {isSavingDates ? "Saving..." : "Save Dates"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPubDateInput(toDateInputValue(research.publicationDate) || "");
+                      setConfDateInput(toDateInputValue(research.conferenceDate) || "");
+                      setIsEditingDates(false);
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                <div className="p-2.5 rounded-lg bg-background border border-blue-500/20 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Date of Publication:</span>
+                    <Badge variant="outline" className="text-[9px] text-blue-700 bg-blue-500/10 border-blue-500/30">
+                      {research.publicationDate ? "✓ Exact Calendar Date" : "Year Only"}
+                    </Badge>
+                  </div>
+                  <p className="font-semibold text-foreground flex items-center gap-1.5 text-sm">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    {formatPublicationDate(research.publicationDate, research.publicationYear)}
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-background border border-indigo-500/20 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Date of Conference:</span>
+                    <Badge variant="outline" className="text-[9px] text-indigo-700 bg-indigo-500/10 border-indigo-500/30">
+                      {research.conferenceDate ? "✓ Conference Date Set" : "Not Specified"}
+                    </Badge>
+                  </div>
+                  <p className="font-semibold text-foreground flex items-center gap-1.5 text-sm">
+                    <CalendarRange className="h-4 w-4 text-indigo-600" />
+                    {research.conferenceDate ? formatPublicationDate(research.conferenceDate) : "No conference date specified"}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Keywords */}

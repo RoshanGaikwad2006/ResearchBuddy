@@ -2,7 +2,7 @@ import { prisma } from "../config/db.js";
 import type { ResearchStatus } from "@prisma/client";
 import type { CreateResearchDTO, UpdateResearchDTO } from "../validation/research.validation.js";
 import { ScholarNormalizationService } from "../integrations/googleScholar/scholarNormalization.service.js";
-import { buildPrismaMonthFilter, normalizePublicationDate } from "../utils/dateFormatter.js";
+import { buildPrismaMonthFilter, normalizePublicationDate, parseYearAndMonth } from "../utils/dateFormatter.js";
 
 export class ResearchService {
   static async create(data: CreateResearchDTO, createdById: string) {
@@ -560,5 +560,109 @@ Return STRICT JSON only:
     }
 
     return { totalCandidates: candidates.length, enrichedCount };
+  }
+
+  static async updateDates(
+    id: string,
+    data: { publicationDate?: string; conferenceDate?: string; publicationYear?: number },
+    userId: string,
+    userRole: string
+  ) {
+    const paper = await prisma.research.findUnique({
+      where: { id },
+      include: { authors: true },
+    });
+    if (!paper) throw new Error("Research paper not found");
+
+    const isOwner = paper.createdById === userId;
+    const isAdmin = userRole === "ADMIN" || userRole === "RESEARCH_CELL";
+    const isAuthor = paper.authors.some((a) => a.facultyId === userId || a.studentId === userId);
+
+    if (!isOwner && !isAdmin && !isAuthor) {
+      throw new Error("Unauthorized to modify dates for this research paper");
+    }
+
+    const updateData: any = {};
+    if (data.publicationDate !== undefined) {
+      updateData.publicationDate = normalizePublicationDate(data.publicationDate) || data.publicationDate;
+      const parsed = parseYearAndMonth(updateData.publicationDate);
+      if (parsed.year) updateData.publicationYear = parsed.year;
+    }
+
+    if (data.conferenceDate !== undefined) {
+      updateData.conferenceDate = normalizePublicationDate(data.conferenceDate) || data.conferenceDate;
+    }
+
+    if (data.publicationYear && !updateData.publicationYear) {
+      updateData.publicationYear = Number(data.publicationYear);
+    }
+
+    return prisma.research.update({
+      where: { id },
+      data: updateData,
+      include: {
+        authors: true,
+        department: true,
+      },
+    });
+  }
+
+  static async createUnderReviewManuscript(
+    userId: string,
+    parsed: {
+      title: string;
+      authors: { authorName: string; affiliation?: string }[];
+      abstract: string;
+      keywords: string[];
+      venueType: "JOURNAL" | "CONFERENCE" | "OTHER";
+      targetVenue?: string;
+      submissionDate?: string;
+      conferenceDate?: string;
+      documentUrl?: string;
+    }
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { facultyProfile: true },
+    });
+    if (!user) throw new Error("User not found");
+
+    const deptId = user.facultyProfile?.departmentId;
+    const year = parsed.submissionDate ? parseInt(parsed.submissionDate.slice(0, 4), 10) : new Date().getFullYear();
+
+    return prisma.research.create({
+      data: {
+        title: parsed.title,
+        abstract: parsed.abstract || "Manuscript under peer review.",
+        keywords: parsed.keywords || ["Under Review"],
+        researchArea: "Applied Sciences & Engineering",
+        venueType: parsed.venueType,
+        journal: parsed.venueType === "JOURNAL" ? parsed.targetVenue : undefined,
+        conference: parsed.venueType === "CONFERENCE" ? parsed.targetVenue : undefined,
+        publicationYear: isNaN(year) ? new Date().getFullYear() : year,
+        publicationDate: parsed.submissionDate,
+        conferenceDate: parsed.conferenceDate,
+        pdfUrl: parsed.documentUrl,
+        status: "UNDER_REVIEW",
+        abstractSource: "MANUAL_KRIYA",
+        titleSource: "MANUAL_KRIYA",
+        venueSource: "MANUAL_KRIYA",
+        createdById: user.id,
+        departmentId: deptId,
+        authors: {
+          create: (parsed.authors.length > 0 ? parsed.authors : [{ authorName: user.name }]).map((a, idx) => ({
+            authorName: a.authorName,
+            authorOrder: idx + 1,
+            affiliation: a.affiliation || "K. K. Wagh Institute of Engineering Education & Research",
+            isCorresponding: idx === 0,
+            facultyId: idx === 0 && user.facultyProfile ? user.facultyProfile.id : undefined,
+          })),
+        },
+      },
+      include: {
+        authors: true,
+        department: true,
+      },
+    });
   }
 }

@@ -285,4 +285,23 @@ export class FacultyService {
       },
     };
   }
+
+  static async updateRole(facultyId: string, role: "ADMIN" | "FACULTY" | "RESEARCH_CELL") {
+    const faculty = await prisma.faculty.findUnique({
+      where: { id: facultyId },
+      include: { user: true },
+    });
+    if (!faculty) throw new Error("Faculty profile not found");
+
+    const updatedUser = await prisma.user.update({
+      where: { id: faculty.userId },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    return {
+      facultyId: faculty.id,
+      user: updatedUser,
+    };
+  }
 }

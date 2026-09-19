@@ -8,6 +8,7 @@ import {
   fetchFacultyList,
   fetchMyFacultyProfile,
   updateFacultyApi,
+  updateFacultyRoleApi,
   type CreateFacultyPayload,
 } from "@/services/faculty.service";
 import { getStoredToken } from "@/services/apiClient";
@@ -76,6 +77,22 @@ export const useDeleteFaculty = () => {
     onSuccess: () => {
       toast.success("Faculty Profile Deleted", { description: "Faculty member removed." });
       queryClient.invalidateQueries({ queryKey: ["faculty-list"] });
+    },
+  });
+};
+
+export const useUpdateFacultyRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ facultyId, role }: { facultyId: string; role: string }) =>
+      updateFacultyRoleApi(facultyId, role),
+    onSuccess: (data) => {
+      toast.success("Role Updated", { description: data.message || "Faculty role changed successfully." });
+      queryClient.invalidateQueries({ queryKey: ["faculty-list"] });
+      queryClient.invalidateQueries({ queryKey: ["faculty-detail"] });
+    },
+    onError: (err: any) => {
+      toast.error("Role Update Failed", { description: err?.response?.data?.message || "Could not update role." });
     },
   });
 };

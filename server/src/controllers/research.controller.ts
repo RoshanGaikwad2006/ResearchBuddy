@@ -269,4 +269,67 @@ export const enrichAllDatesController = async (req: AuthenticatedRequest, res: R
   }
 };
 
+export const updateResearchDatesController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const id = getParamId(req.params.id);
+    const { publicationDate, conferenceDate, publicationYear } = req.body;
+
+    const updated = await ResearchService.updateDates(
+      id,
+      { publicationDate, conferenceDate, publicationYear },
+      req.user.id,
+      req.user.role
+    );
+
+    res.status(200).json({
+      message: "Publication and conference dates updated successfully",
+      research: updated,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to update dates" });
+  }
+};
+
+export const uploadManuscriptController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { filename, fileBase64, createPaper } = req.body;
+    if (!fileBase64) {
+      res.status(400).json({ message: "Word document base64 data required." });
+      return;
+    }
+
+    const cleanBase64 = fileBase64.replace(/^data:.*?;base64,/, "");
+    const buffer = Buffer.from(cleanBase64, "base64");
+
+    const { ManuscriptParserService } = await import("../services/manuscriptParser.service.js");
+    const parsed = await ManuscriptParserService.parseDocxBuffer(buffer);
+
+    let createdResearch = null;
+    if (createPaper !== false) {
+      createdResearch = await ResearchService.createUnderReviewManuscript(req.user.id, {
+        ...parsed,
+        documentUrl: filename ? `manuscripts/${encodeURIComponent(filename)}` : undefined,
+      });
+    }
+
+    res.status(200).json({
+      message: "Manuscript parsed and recorded successfully",
+      parsed,
+      research: createdResearch,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Failed to parse manuscript document" });
+  }
+};
+
 

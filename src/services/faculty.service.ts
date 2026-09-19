@@ -172,3 +172,11 @@ export const deleteFacultyApi = async (id: string): Promise<{ message: string }>
   const response = await apiClient.delete<{ message: string }>(`/faculty/${id}`);
   return response.data;
 };
+
+export const updateFacultyRoleApi = async (
+  facultyId: string,
+  role: string
+): Promise<{ message: string; user: { id: string; role: string; name: string } }> => {
+  const response = await apiClient.patch(`/faculty/${facultyId}/role`, { role });
+  return response.data;
+};

@@ -148,3 +148,28 @@ export const listFaculty = async (req: AuthenticatedRequest, res: Response): Pro
     res.status(500).json({ message: error.message || "Failed to list Faculty" });
   }
 };
+
+export const updateFacultyRole = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user || req.user.role !== "ADMIN") {
+      res.status(403).json({ message: "Forbidden: Only administrators can assign roles." });
+      return;
+    }
+
+    const facultyId = getParamId(req.params.id);
+    const { role } = req.body;
+
+    if (!role || !["ADMIN", "FACULTY", "RESEARCH_CELL"].includes(role)) {
+      res.status(400).json({ message: "Invalid role specified. Allowed: ADMIN, FACULTY, RESEARCH_CELL." });
+      return;
+    }
+
+    const updated = await FacultyService.updateRole(facultyId, role);
+    res.status(200).json({
+      message: `Role successfully updated to ${role}`,
+      faculty: updated,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Failed to update faculty role" });
+  }
+};

@@ -11,6 +11,8 @@ import {
   refreshResearchCitationsController,
   enrichResearchDateController,
   enrichAllDatesController,
+  updateResearchDatesController,
+  uploadManuscriptController,
 } from "../controllers/research.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
 
@@ -20,10 +22,12 @@ router.use(authenticateToken);
 
 router.get("/my", getMyResearches);
 router.post("/enrich-all-dates", enrichAllDatesController);
+router.post("/upload-manuscript", uploadManuscriptController);
 router.post("/", createResearch);
 router.get("/", listResearches);
 router.get("/:id", getResearchById);
 router.put("/:id", updateResearch);
+router.patch("/:id/dates", updateResearchDatesController);
 router.post("/:id/enrich-abstract", enrichResearchAbstractController);
 router.post("/:id/refresh-citations", refreshResearchCitationsController);
 router.post("/:id/enrich-date", enrichResearchDateController);

@@ -53,6 +53,7 @@ import { ResearchIntelligenceDashboardView } from "@/features/intelligence/compo
 import { FacultyResearchIntelligenceView } from "@/features/intelligence/components/FacultyResearchIntelligenceView";
 import { KnowledgeGraphView } from "@/features/knowledgeGraph/components/KnowledgeGraphView";
 import { MyResearchVaultView } from "@/features/vault/components/MyResearchVaultView";
+import { UnderReviewPapersView } from "@/features/manuscripts/components/UnderReviewPapersView";
 import { ResearchSubmissionModal } from "@/features/research/components/ResearchSubmissionModal";
 import {
   DropdownMenu,
@@ -90,6 +91,7 @@ export type WorkspaceTab =
   | "knowledge-graph"
   | "my-publications"
   | "publications"
+  | "under-review"
   | "approvals"
   | "faculty"
   | "profile"
@@ -597,6 +599,9 @@ function DashboardPage() {
 
             {/* TAB CONTENT: All Publications */}
             {activeTab === "publications" && <ResearchListView />}
+
+            {/* TAB CONTENT: Under-Review Manuscripts */}
+            {activeTab === "under-review" && <UnderReviewPapersView />}
 
             {/* TAB CONTENT: Profile (Faculty / Student) */}
             {activeTab === "profile" && (

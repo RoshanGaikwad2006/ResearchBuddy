@@ -8,6 +8,7 @@ import {
   listFaculty,
   syncMyResearchProfile,
   updateFaculty,
+  updateFacultyRole,
   updateMyResearchIdentity,
 } from "../controllers/faculty.controller.js";
 import { authenticateToken } from "../middleware/auth.middleware.js";
@@ -29,6 +30,7 @@ router.post("/", createFaculty);
 router.get("/", listFaculty);
 router.get("/:id", getFacultyById);
 router.put("/:id", updateFaculty);
+router.patch("/:id/role", updateFacultyRole);
 router.delete("/:id", deleteFaculty);
 
 export default router;

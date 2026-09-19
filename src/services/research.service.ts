@@ -37,6 +37,7 @@ export interface ResearchItem {
   isbn?: string;
   publicationYear: number;
   publicationDate?: string;
+  conferenceDate?: string;
   pdfUrl?: string;
   citationCount: number;
   status: ResearchStatusType;
@@ -146,6 +147,44 @@ export const enrichPublicationDateApi = async (
   id: string
 ): Promise<{ message: string; research: ResearchItem }> => {
   const response = await apiClient.post(`/researches/${id}/enrich-date`);
+  return response.data;
+};
+
+export const updateResearchDatesApi = async (
+  id: string,
+  dates: {
+    publicationDate?: string;
+    conferenceDate?: string;
+    publicationYear?: number;
+  }
+): Promise<{ message: string; research: ResearchItem }> => {
+  const response = await apiClient.patch(`/researches/${id}/dates`, dates);
+  return response.data;
+};
+
+export interface ParsedManuscriptResult {
+  title: string;
+  authors: { authorName: string; authorOrder: number }[];
+  abstract: string;
+  keywords: string[];
+  submissionDate?: string;
+  conferenceDate?: string;
+  venueType?: "JOURNAL" | "CONFERENCE" | "BOOK_CHAPTER";
+  targetVenue?: string;
+  wordCount: number;
+  extractedTextPreview?: string;
+}
+
+export const uploadManuscriptApi = async (data: {
+  filename: string;
+  fileBase64: string;
+  createPaper?: boolean;
+}): Promise<{
+  message: string;
+  parsed: ParsedManuscriptResult;
+  research?: ResearchItem;
+}> => {
+  const response = await apiClient.post("/researches/upload-manuscript", data);
   return response.data;
 };
 
