@@ -30,9 +30,15 @@ export async function resilientFetch(
       // Handle Rate Limiting (429) or Server Errors (502, 503, 504) with backoff
       if (response.status === 429 || response.status >= 500) {
         const retryAfterHeader = response.headers.get("Retry-After");
-        const backoffMs = retryAfterHeader
-          ? parseInt(retryAfterHeader, 10) * 1000
-          : Math.min(1000 * Math.pow(2, attempt) + Math.random() * 200, 8000);
+        let backoffMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 200, 8000);
+        if (retryAfterHeader) {
+          const parsed = parseInt(retryAfterHeader, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            // If parsed > 1000, header was sent in milliseconds; otherwise in seconds
+            const delayMs = parsed > 1000 ? parsed : parsed * 1000;
+            backoffMs = Math.min(delayMs, 10000); // Cap at 10 seconds max
+          }
+        }
 
         console.warn(
           `[ResilientFetch] Attempt ${attempt}/${maxRetries} failed with status ${response.status} for ${url}. Retrying in ${Math.round(backoffMs)}ms...`

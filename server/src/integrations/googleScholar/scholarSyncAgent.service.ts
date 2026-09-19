@@ -180,15 +180,15 @@ export class ScholarSyncAgent {
           }
         }
 
-        // Title search fallback on OpenAlex for exact publication date & metadata
-        if (!fetchedMeta && pub.title) {
+        // Title search fallback on OpenAlex only if exact publication date & DOI are missing
+        if (!fetchedMeta && !pub.publicationDate && pub.title) {
           try {
             fetchedMeta = await OpenAlexService.searchByTitle(pub.title);
           } catch {}
         }
 
         // Live Google Scholar citation detail fallback for exact date
-        if (!pub.publicationDate && (!fetchedMeta || !fetchedMeta.publicationDate) && pub.scholarId) {
+        if (!pub.publicationDate && pub.scholarId) {
           try {
             const citeDetail = await GoogleScholarService.fetchCitationDetail(pub.scholarId);
             if (citeDetail?.publicationDate) {

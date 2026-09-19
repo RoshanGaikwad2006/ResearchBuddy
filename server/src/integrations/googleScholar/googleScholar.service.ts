@@ -39,32 +39,16 @@ export class GoogleScholarService {
   ): Promise<GoogleScholarProfilePreview> {
     const authorId = extractScholarAuthorId(input);
 
-    // 1. Primary: Fetch publication and citation data via OpenRouter AI
-    const openrouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-    if (openrouterKey) {
-      try {
-        console.log(`[SCHOLAR_FETCH] Querying OpenRouter AI for publication and citation metrics (Input: ${input})...`);
-        const openRouterPreview = await OpenRouterScholarService.fetchProfilePreview(input, hint);
-        if (openRouterPreview && openRouterPreview.publications.length > 0) {
-          console.log(
-            `✅ [OPENROUTER_SUCCESS] Retrieved ${openRouterPreview.publications.length} publications, ${openRouterPreview.totalCitations} citations for ${openRouterPreview.name}`
-          );
-          return openRouterPreview;
-        }
-      } catch (err: any) {
-        console.warn("OpenRouter scholar fetch encountered error, falling back to secondary sources:", err.message || err);
-      }
-    }
-
-    // 2. Secondary: SerpAPI Google Scholar Scraping
+    // 1. Primary: SerpAPI Google Scholar Scraping & Exact Citation Detail Fetch
     const apiKey = process.env.SERP_API_KEY;
 
     if (apiKey) {
       try {
         const serpUrl = `https://serpapi.com/search.json?engine=google_scholar_author&author_id=${encodeURIComponent(
           authorId
-        )}&api_key=${apiKey}`;
+        )}&api_key=${apiKey}&num=100`;
 
+        console.log(`[SCHOLAR_FETCH] Querying SerpApi directly for Google Scholar author: ${authorId}...`);
         const response = await fetch(serpUrl);
         if (response.ok) {
           const data: any = await response.json();
@@ -77,17 +61,43 @@ export class GoogleScholarService {
           const hIndexAll = tableData[1]?.h_index?.all || 0;
           const i10IndexAll = tableData[2]?.i10_index?.all || 0;
 
-          const publications: ScholarPublicationPreview[] = articles.map((art: any) => ({
-            scholarId: art.citation_id,
-            title: art.title || "Untitled Paper",
-            authors: art.authors || "Unknown Authors",
-            year: extractPublicationYear(art.year, art.publication, art.snippet, art.title),
-            publicationDate: art.publication_date || (art.year ? String(art.year) : undefined),
-            journal: art.publication || undefined,
-            citationCount: art.cited_by?.value ? Number(art.cited_by.value) : 0,
-            snippet: art.snippet || undefined,
-            link: art.link || undefined,
-          }));
+          console.log(`[SCHOLAR_FETCH] Retrieved ${articles.length} articles for ${author.name || authorId}. Fetching exact citation dates...`);
+
+          // Fetch exact citation details from Google Scholar in concurrent batches
+          const publications: ScholarPublicationPreview[] = await Promise.all(
+            articles.map(async (art: any) => {
+              let exactDate: string | undefined = undefined;
+              let fullAuthors: string = art.authors || "Unknown Authors";
+              let venue: string | undefined = art.publication || undefined;
+              let description: string | undefined = art.snippet || undefined;
+
+              if (art.citation_id) {
+                try {
+                  const detail = await GoogleScholarService.fetchCitationDetail(art.citation_id);
+                  if (detail) {
+                    if (detail.publicationDate) exactDate = detail.publicationDate;
+                    if (detail.authors) fullAuthors = detail.authors;
+                    if (detail.conference || detail.journal) venue = detail.journal || detail.conference;
+                    if (detail.description) description = detail.description;
+                  }
+                } catch {}
+              }
+
+              const normalized = normalizePublicationDate(exactDate, art.year);
+
+              return {
+                scholarId: art.citation_id,
+                title: art.title || "Untitled Paper",
+                authors: fullAuthors,
+                year: extractPublicationYear(art.year, venue, description, art.title),
+                publicationDate: normalized || (art.year ? String(art.year) : undefined),
+                journal: venue,
+                citationCount: art.cited_by?.value ? Number(art.cited_by.value) : 0,
+                snippet: description,
+                link: art.link || undefined,
+              };
+            })
+          );
 
           return {
             authorId,
@@ -106,7 +116,24 @@ export class GoogleScholarService {
           };
         }
       } catch (error) {
-        console.warn("SerpAPI fetch failed, falling back to structured preview:", error);
+        console.warn("SerpAPI fetch failed, falling back to OpenRouter/secondary sources:", error);
+      }
+    }
+
+    // 2. Secondary Fallback: OpenRouter AI
+    const openrouterKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    if (openrouterKey) {
+      try {
+        console.log(`[SCHOLAR_FETCH] Querying OpenRouter AI fallback for publication metrics (Input: ${input})...`);
+        const openRouterPreview = await OpenRouterScholarService.fetchProfilePreview(input, hint);
+        if (openRouterPreview && openRouterPreview.publications.length > 0) {
+          console.log(
+            `✅ [OPENROUTER_SUCCESS] Retrieved ${openRouterPreview.publications.length} publications for ${openRouterPreview.name}`
+          );
+          return openRouterPreview;
+        }
+      } catch (err: any) {
+        console.warn("OpenRouter scholar fetch encountered error:", err.message || err);
       }
     }
 
