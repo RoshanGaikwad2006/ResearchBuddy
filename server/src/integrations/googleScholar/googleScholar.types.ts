@@ -3,6 +3,7 @@ export interface ScholarPublicationPreview {
   title: string;
   authors: string;
   year?: number;
+  publicationDate?: string;
   journal?: string;
   conference?: string;
   citationCount: number;

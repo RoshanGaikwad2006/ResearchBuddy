@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { FileStack, Plus, Search, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Eye, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Users, Filter, BookOpen, Layers, Award, Book, FileText } from "lucide-react";
+import { FileStack, Plus, Search, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, Eye, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Users, Filter, BookOpen, Layers, Award, Book, FileText, Calendar, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMyResearchList } from "../hooks/useResearch";
 import { ResearchSubmissionModal } from "./ResearchSubmissionModal";
 import { ResearchDetailModal } from "./ResearchDetailModal";
-import type { ResearchItem, ResearchStatusType } from "@/services/research.service";
+import { type ResearchItem, type ResearchStatusType, enrichAllPublicationDatesApi } from "@/services/research.service";
 import { parseAuthorRoles } from "@/utils/authorFormatter";
 import { getGoogleScholarUrl } from "@/utils/scholarLink";
+import { MONTH_OPTIONS, formatPublicationDate, matchesClientDateFilter } from "@/utils/formatDate";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -37,6 +39,12 @@ export function MyPublicationsView() {
   const [venueFilter, setVenueFilter] = useState<"ALL" | "JOURNAL" | "CONFERENCE" | "PATENT" | "BOOK" | "OTHER">("ALL");
   const [statusFilter, setStatusFilter] = useState<ResearchStatusType | "ALL">("ALL");
   const [yearFilter, setYearFilter] = useState<string>("ALL");
+  const [monthFilter, setMonthFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "citations_desc" | "title_asc">("date_desc");
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichResult, setEnrichResult] = useState<string | null>(null);
+
+  const queryClient = useQueryClient();
 
   // Fetch user portfolio with sufficient limit to allow full client-side category classification & search
   const { data, isLoading } = useMyResearchList({
@@ -44,6 +52,21 @@ export function MyPublicationsView() {
   });
 
   const allPublications = data?.items || [];
+
+  const handleEnrichDates = async () => {
+    try {
+      setIsEnriching(true);
+      setEnrichResult(null);
+      const res = await enrichAllPublicationDatesApi();
+      setEnrichResult(res.message || `Enriched ${res.enrichedCount} publications with verified dates`);
+      await queryClient.invalidateQueries({ queryKey: ["my-research"] });
+      setTimeout(() => setEnrichResult(null), 6000);
+    } catch (err: any) {
+      setEnrichResult(err.message || "Failed to enrich publication dates");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   // Dynamically compute real counts for every category across all publications
   const categoryCounts = {
@@ -61,39 +84,59 @@ export function MyPublicationsView() {
   ).sort((a, b) => b - a);
 
   // Filter across all publications generally
-  const filteredPublications = allPublications.filter((p) => {
-    // 1. Status Filter
-    if (statusFilter !== "ALL" && p.status !== statusFilter) {
-      return false;
-    }
+  const filteredPublications = allPublications
+    .filter((p) => {
+      // 1. Status Filter
+      if (statusFilter !== "ALL" && p.status !== statusFilter) {
+        return false;
+      }
 
-    // 2. Category / Venue Filter
-    if (venueFilter !== "ALL" && getPublicationType(p) !== venueFilter) {
-      return false;
-    }
+      // 2. Category / Venue Filter
+      if (venueFilter !== "ALL" && getPublicationType(p) !== venueFilter) {
+        return false;
+      }
 
-    // 3. Year Filter
-    if (yearFilter !== "ALL" && String(p.publicationYear) !== yearFilter) {
-      return false;
-    }
+      // 3. Year & Month Date Filter
+      if (!matchesClientDateFilter(p, { year: yearFilter, month: monthFilter })) {
+        return false;
+      }
 
-    // 3. Search Query Filter
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matches =
-        p.title?.toLowerCase().includes(q) ||
-        p.abstract?.toLowerCase().includes(q) ||
-        p.journal?.toLowerCase().includes(q) ||
-        p.conference?.toLowerCase().includes(q) ||
-        p.patentNumber?.toLowerCase().includes(q) ||
-        p.isbn?.toLowerCase().includes(q) ||
-        p.authors?.some((a) => a.authorName?.toLowerCase().includes(q));
+      // 4. Search Query Filter
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matches =
+          p.title?.toLowerCase().includes(q) ||
+          p.abstract?.toLowerCase().includes(q) ||
+          p.journal?.toLowerCase().includes(q) ||
+          p.conference?.toLowerCase().includes(q) ||
+          p.patentNumber?.toLowerCase().includes(q) ||
+          p.isbn?.toLowerCase().includes(q) ||
+          p.authors?.some((a) => a.authorName?.toLowerCase().includes(q));
 
-      if (!matches) return false;
-    }
+        if (!matches) return false;
+      }
 
-    return true;
-  });
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "date_desc") {
+        const dA = a.publicationDate || (a.publicationYear ? `${a.publicationYear}-01-01` : "");
+        const dB = b.publicationDate || (b.publicationYear ? `${b.publicationYear}-01-01` : "");
+        return dB.localeCompare(dA);
+      }
+      if (sortBy === "date_asc") {
+        const dA = a.publicationDate || (a.publicationYear ? `${a.publicationYear}-01-01` : "");
+        const dB = b.publicationDate || (b.publicationYear ? `${b.publicationYear}-01-01` : "");
+        return dA.localeCompare(dB);
+      }
+      if (sortBy === "citations_desc") {
+        return (b.citationCount || 0) - (a.citationCount || 0);
+      }
+      if (sortBy === "title_asc") {
+        return (a.title || "").localeCompare(b.title || "");
+      }
+      return 0;
+    });
 
   // Client-side pagination over filtered results
   const totalFiltered = filteredPublications.length;
@@ -194,19 +237,43 @@ export function MyPublicationsView() {
           </p>
         </div>
 
-        <Button onClick={() => setIsSubmitOpen(true)} className="gap-1.5 shrink-0">
-          <Plus className="h-4 w-4" /> Submit New Paper
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEnrichDates}
+            disabled={isEnriching}
+            className="gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-500/10 border-blue-500/30"
+            title="Fetch exact publication dates from Google Scholar and OpenAlex"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-blue-600 ${isEnriching ? "animate-spin" : ""}`} />
+            {isEnriching ? "Syncing Dates..." : "Sync & Enrich Dates"}
+          </Button>
+
+          <Button onClick={() => setIsSubmitOpen(true)} className="gap-1.5 shrink-0">
+            <Plus className="h-4 w-4" /> Submit New Paper
+          </Button>
+        </div>
       </div>
 
-      {/* Filter Toolbar & Search & Year */}
+      {enrichResult && (
+        <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-xs text-blue-700 font-medium flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-blue-600 shrink-0" />
+            {enrichResult}
+          </span>
+          <button onClick={() => setEnrichResult(null)} className="text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+      )}
+
+      {/* Filter Toolbar & Search & Year & Month & Sort */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 rounded-2xl border border-border bg-card shadow-xs">
-        <div className="flex flex-1 items-center gap-3 flex-wrap">
+        <div className="flex flex-1 items-center gap-2.5 flex-wrap">
           {/* Search Bar */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search my titles, patents, ISBN, or keywords..."
+              placeholder="Search my titles, patents, ISBN..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -217,7 +284,7 @@ export function MyPublicationsView() {
           </div>
 
           {/* Year Filter Dropdown */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-xs font-semibold text-muted-foreground">Year:</span>
             <select
               value={yearFilter}
@@ -225,7 +292,7 @@ export function MyPublicationsView() {
                 setYearFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-9 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="ALL">All Years ({allPublications.length})</option>
               {availableYears.map((yr) => (
@@ -233,6 +300,40 @@ export function MyPublicationsView() {
                   {yr}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Month Filter Dropdown */}
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground">Month:</span>
+            <select
+              value={monthFilter}
+              onChange={(e) => {
+                setMonthFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {MONTH_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sort By Dropdown */}
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground">Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="date_desc">📅 Newest First</option>
+              <option value="date_asc">📅 Oldest First</option>
+              <option value="citations_desc">⭐ Citations (High to Low)</option>
+              <option value="title_asc">🔤 Title (A to Z)</option>
             </select>
           </div>
         </div>
@@ -427,12 +528,17 @@ export function MyPublicationsView() {
                 </div>
 
                 {/* Venue / Citation Stats */}
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span className="font-semibold text-foreground">
-                    {pub.publicationYear} • {pub.journal || pub.conference || "Institutional Repo"}
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground gap-2">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-500/10 text-blue-700 border-blue-500/30 gap-1 font-medium shrink-0">
+                      <Calendar className="h-3 w-3 text-blue-600 shrink-0" />
+                      {formatPublicationDate(pub.publicationDate, pub.publicationYear)}
+                    </Badge>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="truncate text-muted-foreground text-[11px]">{pub.journal || pub.conference || "Institutional Repo"}</span>
                   </span>
-                  <span className="text-primary font-bold flex items-center gap-1">
-                    <Quote className="h-3 w-3" /> {pub.citationCount || 0} Citations
+                  <span className="text-primary font-bold flex items-center gap-1 shrink-0">
+                    <Quote className="h-3 w-3" /> {pub.citationCount || 0}
                   </span>
                 </div>
 

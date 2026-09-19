@@ -180,6 +180,23 @@ export class ScholarSyncAgent {
           }
         }
 
+        // Title search fallback on OpenAlex for exact publication date & metadata
+        if (!fetchedMeta && pub.title) {
+          try {
+            fetchedMeta = await OpenAlexService.searchByTitle(pub.title);
+          } catch {}
+        }
+
+        // Live Google Scholar citation detail fallback for exact date
+        if (!pub.publicationDate && (!fetchedMeta || !fetchedMeta.publicationDate) && pub.scholarId) {
+          try {
+            const citeDetail = await GoogleScholarService.fetchCitationDetail(pub.scholarId);
+            if (citeDetail?.publicationDate) {
+              pub.publicationDate = citeDetail.publicationDate;
+            }
+          } catch {}
+        }
+
         let openAlexAuthors: { authorName: string; authorOrder: number }[] = [];
         if (fetchedMeta) {
           const facultyLastName = faculty.user.name.split(" ").pop()?.toLowerCase() || "";
@@ -298,12 +315,16 @@ export class ScholarSyncAgent {
             doi: fetchedMeta.doi,
             venue: fetchedMeta.journal || fetchedMeta.conference,
             citationCount: fetchedMeta.citationCount,
+            publicationDate: fetchedMeta.publicationDate,
+            publicationYear: fetchedMeta.publicationYear,
           } : undefined,
           crossref: fetchedMeta?.sourceApi === "Crossref" ? {
             title: fetchedMeta.title,
             abstract: fetchedMeta.abstract,
             doi: fetchedMeta.doi,
             venue: fetchedMeta.journal || fetchedMeta.conference,
+            publicationDate: fetchedMeta.publicationDate,
+            publicationYear: fetchedMeta.publicationYear,
           } : undefined,
           scholar: {
             title: pub.title,
@@ -311,6 +332,7 @@ export class ScholarSyncAgent {
             doi: resolvedDoi || undefined,
             venue: pub.journal || pub.conference || undefined,
             citationCount: pub.citationCount,
+            publicationDate: pub.publicationDate,
             publicationYear: extractPublicationYear(pub.year, pub.journal || pub.conference, pub.snippet, pub.title),
           },
         });
@@ -352,6 +374,7 @@ export class ScholarSyncAgent {
                 conference: !reconciled.isJournal ? (reconciled.venue.value || existingRec.conference) : existingRec.conference,
                 venueSource: reconciled.venue.source,
                 venueType: reconciled.venueType,
+                publicationDate: reconciled.publicationDate.value || existingRec.publicationDate,
                 patentNumber: reconciled.patentNumber || existingRec.patentNumber,
                 isbn: reconciled.isbn || existingRec.isbn,
                 provenance: reconciled as any,
@@ -396,6 +419,7 @@ export class ScholarSyncAgent {
               patentNumber: reconciled.patentNumber || null,
               isbn: reconciled.isbn || null,
               publicationYear: reconciled.publicationYear.value,
+              publicationDate: reconciled.publicationDate.value,
               citationCount: reconciled.citationCount.value,
               citationSource: reconciled.citationCount.source,
               provenance: reconciled as any,

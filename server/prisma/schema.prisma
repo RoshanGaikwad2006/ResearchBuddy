@@ -171,6 +171,7 @@ model Research {
   journal         String?
   conference      String?
   publicationYear Int
+  publicationDate String?
   pdfUrl          String?
   citationCount   Int            @default(0)
   status          ResearchStatus @default(DRAFT)

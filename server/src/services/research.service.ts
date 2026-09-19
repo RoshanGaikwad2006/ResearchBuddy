@@ -2,6 +2,7 @@ import { prisma } from "../config/db.js";
 import type { ResearchStatus } from "@prisma/client";
 import type { CreateResearchDTO, UpdateResearchDTO } from "../validation/research.validation.js";
 import { ScholarNormalizationService } from "../integrations/googleScholar/scholarNormalization.service.js";
+import { buildPrismaMonthFilter, normalizePublicationDate } from "../utils/dateFormatter.js";
 
 export class ResearchService {
   static async create(data: CreateResearchDTO, createdById: string) {
@@ -145,6 +146,7 @@ export class ResearchService {
     status?: ResearchStatus;
     departmentId?: string;
     publicationYear?: number;
+    month?: number | string;
     createdById?: string;
     page?: number;
     limit?: number;
@@ -165,6 +167,14 @@ export class ResearchService {
 
     if (params.publicationYear) {
       where.publicationYear = params.publicationYear;
+    }
+
+    if (params.month) {
+      const m = Number(params.month);
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        const mFilter = buildPrismaMonthFilter(m, params.publicationYear);
+        where.AND = where.AND ? [...where.AND, mFilter] : [mFilter];
+      }
     }
 
     if (params.createdById) {
@@ -217,6 +227,7 @@ export class ResearchService {
       search?: string;
       status?: ResearchStatus;
       publicationYear?: number;
+      month?: number | string;
       page?: number;
       limit?: number;
     }
@@ -255,19 +266,26 @@ export class ResearchService {
       where.publicationYear = params.publicationYear;
     }
 
+    if (params.month) {
+      const m = Number(params.month);
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        const mFilter = buildPrismaMonthFilter(m, params.publicationYear);
+        where.AND = where.AND ? [...where.AND, mFilter] : [mFilter];
+      }
+    }
+
     if (params.search) {
-      where.AND = [
-        {
-          OR: [
-            { title: { contains: params.search, mode: "insensitive" } },
-            { abstract: { contains: params.search, mode: "insensitive" } },
-            { researchArea: { contains: params.search, mode: "insensitive" } },
-            { journal: { contains: params.search, mode: "insensitive" } },
-            { conference: { contains: params.search, mode: "insensitive" } },
-            { doi: { contains: params.search, mode: "insensitive" } },
-          ],
-        },
-      ];
+      const searchFilter = {
+        OR: [
+          { title: { contains: params.search, mode: "insensitive" } },
+          { abstract: { contains: params.search, mode: "insensitive" } },
+          { researchArea: { contains: params.search, mode: "insensitive" } },
+          { journal: { contains: params.search, mode: "insensitive" } },
+          { conference: { contains: params.search, mode: "insensitive" } },
+          { doi: { contains: params.search, mode: "insensitive" } },
+        ],
+      };
+      where.AND = where.AND ? [...where.AND, searchFilter] : [searchFilter];
     }
 
     const [items, total] = await Promise.all([
@@ -428,5 +446,119 @@ Return STRICT JSON only:
         approvals: true,
       },
     });
+  }
+
+  static async enrichPublicationDate(id: string) {
+    const paper = await prisma.research.findUnique({
+      where: { id },
+      include: { authors: true },
+    });
+
+    if (!paper) {
+      throw new Error("Research publication not found");
+    }
+
+    const { OpenAlexService } = await import("./openalex.service.js");
+
+    let resolvedDate: string | null = null;
+    let resolvedYear = paper.publicationYear;
+
+    // 1. Try OpenAlex by DOI
+    if (paper.doi) {
+      try {
+        const meta = await OpenAlexService.fetchMetadata(paper.doi);
+        if (meta?.publicationDate) {
+          resolvedDate = meta.publicationDate;
+          if (meta.publicationYear) resolvedYear = meta.publicationYear;
+        }
+      } catch {}
+    }
+
+    // 2. Try OpenAlex by title search
+    if (!resolvedDate && paper.title) {
+      try {
+        const meta = await OpenAlexService.searchByTitle(paper.title);
+        if (meta?.publicationDate) {
+          resolvedDate = meta.publicationDate;
+          if (meta.publicationYear) resolvedYear = meta.publicationYear;
+        }
+      } catch {}
+    }
+
+    // 3. Fallback: normalize whatever date or year is present
+    const normalized = normalizePublicationDate(resolvedDate, resolvedYear);
+
+    if (normalized) {
+      return prisma.research.update({
+        where: { id },
+        data: {
+          publicationDate: normalized,
+          publicationYear: resolvedYear || paper.publicationYear,
+        },
+      });
+    }
+
+    return paper;
+  }
+
+  static async enrichAllMissingDates(userId?: string) {
+    const where: any = {
+      OR: [
+        { publicationDate: null },
+        { publicationDate: "" },
+      ],
+    };
+
+    if (userId) {
+      where.createdById = userId;
+    }
+
+    const candidates = await prisma.research.findMany({
+      where,
+      select: { id: true, title: true, doi: true, publicationYear: true },
+      take: 150,
+    });
+
+    let enrichedCount = 0;
+    const { OpenAlexService } = await import("./openalex.service.js");
+
+    for (const paper of candidates) {
+      let resolvedDate: string | null = null;
+      let resolvedYear = paper.publicationYear;
+
+      if (paper.doi) {
+        try {
+          const meta = await OpenAlexService.fetchMetadata(paper.doi);
+          if (meta?.publicationDate) {
+            resolvedDate = meta.publicationDate;
+            if (meta.publicationYear) resolvedYear = meta.publicationYear;
+          }
+        } catch {}
+      }
+
+      if (!resolvedDate && paper.title) {
+        try {
+          const meta = await OpenAlexService.searchByTitle(paper.title);
+          if (meta?.publicationDate) {
+            resolvedDate = meta.publicationDate;
+            if (meta.publicationYear) resolvedYear = meta.publicationYear;
+          }
+        } catch {}
+      }
+
+      const normalized = normalizePublicationDate(resolvedDate, resolvedYear);
+      if (normalized) {
+        await prisma.research.update({
+          where: { id: paper.id },
+          data: {
+            publicationDate: normalized,
+            publicationYear: resolvedYear || paper.publicationYear,
+          },
+        });
+        enrichedCount++;
+      }
+    }
+
+    return { totalCandidates: candidates.length, enrichedCount };
   }
 }

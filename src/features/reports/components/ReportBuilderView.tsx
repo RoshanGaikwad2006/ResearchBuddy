@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   Users,
   ExternalLink,
+  Calendar,
 } from "lucide-react";
+import { MONTH_OPTIONS } from "@/utils/formatDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,6 +62,7 @@ const ALL_AVAILABLE_COLUMNS = [
   { key: "coAuthors", label: "Co-Author(s)" },
   { key: "journal", label: "Journal / Conference" },
   { key: "publicationYear", label: "Publication Year" },
+  { key: "publicationDate", label: "Publication Date" },
   { key: "abstract", label: "Paper Abstract" },
   { key: "abstractSource", label: "Abstract Source Tag" },
   { key: "citationCount", label: "Citation Count" },
@@ -89,6 +92,7 @@ const PAPER_WISE_COLUMNS = [
   "department",
   "journal",
   "publicationYear",
+  "publicationDate",
   "citationCount",
   "doi",
   "status",
@@ -113,6 +117,7 @@ export function ReportBuilderView() {
   const [facultyId, setFacultyId] = useState<string>("ALL");
   const [yearStart, setYearStart] = useState<string>("");
   const [yearEnd, setYearEnd] = useState<string>("");
+  const [monthFilter, setMonthFilter] = useState<string>("ALL");
   const [researchArea, setResearchArea] = useState<string>("");
   const [status, setStatus] = useState<string>("ALL");
   const [journalOrConference, setJournalOrConference] = useState<"JOURNAL" | "CONFERENCE" | "ALL">("ALL");
@@ -122,6 +127,8 @@ export function ReportBuilderView() {
   const [sorting, setSorting] = useState<
     | "year_desc"
     | "year_asc"
+    | "date_desc"
+    | "date_asc"
     | "citations_desc"
     | "citations_asc"
     | "title_asc"
@@ -156,6 +163,7 @@ export function ReportBuilderView() {
     facultyId: facultyId !== "ALL" ? facultyId : undefined,
     yearStart: yearStart ? Number(yearStart) : undefined,
     yearEnd: yearEnd ? Number(yearEnd) : undefined,
+    monthFilter: monthFilter !== "ALL" ? monthFilter : undefined,
     researchArea: researchArea || undefined,
     status: status !== "ALL" ? status : undefined,
     journalOrConference,
@@ -499,6 +507,25 @@ export function ReportBuilderView() {
                   </div>
                 </div>
 
+                {/* Publication Month Filter */}
+                <div className="space-y-1">
+                  <Label className="text-xs flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-muted-foreground" /> Publication Month
+                  </Label>
+                  <Select value={monthFilter} onValueChange={setMonthFilter}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="All Months" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MONTH_OPTIONS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Publication Status & Venue */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -675,6 +702,8 @@ export function ReportBuilderView() {
                       <SelectItem value="i10_desc">i10-index (Highest First)</SelectItem>
                       <SelectItem value="citations_desc">Citations (Highest First)</SelectItem>
                       <SelectItem value="publications_desc">Publications (Highest First)</SelectItem>
+                      <SelectItem value="date_desc">📅 Publication Date (Newest First)</SelectItem>
+                      <SelectItem value="date_asc">📅 Publication Date (Oldest First)</SelectItem>
                       <SelectItem value="year_desc">Year (Newest First)</SelectItem>
                       <SelectItem value="year_asc">Year (Oldest First)</SelectItem>
                       <SelectItem value="title_asc">Name / Title (A-Z)</SelectItem>

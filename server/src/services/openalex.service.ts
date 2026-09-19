@@ -9,6 +9,7 @@ export interface StandardDoiMetadata {
   journal?: string;
   conference?: string;
   publicationYear: number;
+  publicationDate?: string;
   citationCount: number;
   keywords: string[];
   publisher?: string;
@@ -62,6 +63,7 @@ export class OpenAlexService {
         journal: isConference ? undefined : sourceName,
         conference: isConference ? sourceName : undefined,
         publicationYear: data.publication_year || new Date().getFullYear(),
+        publicationDate: data.publication_date || (data.publication_year ? String(data.publication_year) : undefined),
         citationCount: data.cited_by_count || 0,
         keywords: keywords.length > 0 ? keywords : ["Research"],
         publisher: data.primary_location?.source?.host_organization_name || undefined,
@@ -73,19 +75,25 @@ export class OpenAlexService {
     }
   }
 
+  static async searchByTitle(title: string): Promise<StandardDoiMetadata | null> {
+    return this.fetchMetadataByTitle(title);
+  }
+
   static async fetchMetadataByTitle(title: string): Promise<StandardDoiMetadata | null> {
     if (!title || title.length < 5) return null;
     const cleanTitle = encodeURIComponent(title.trim());
     const url = `https://api.openalex.org/works?search=${cleanTitle}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await resilientFetch(url, {
         headers: {
           "User-Agent": "KRIYA-Research-Platform/1.0 (mailto:admin@university.edu)",
         },
+        timeoutMs: 12000,
+        maxRetries: 3,
       });
 
-      if (!response.ok) return null;
+      if (!response || !response.ok) return null;
 
       const resData: any = await response.json();
       if (!resData.results || resData.results.length === 0) return null;
@@ -127,6 +135,7 @@ export class OpenAlexService {
         journal: isConference ? undefined : sourceName,
         conference: isConference ? sourceName : undefined,
         publicationYear: data.publication_year || new Date().getFullYear(),
+        publicationDate: data.publication_date || (data.publication_year ? String(data.publication_year) : undefined),
         citationCount: data.cited_by_count || 0,
         keywords: keywords.length > 0 ? keywords : ["Research"],
         publisher: data.primary_location?.source?.host_organization_name || undefined,
@@ -186,6 +195,7 @@ export class OpenAlexService {
           journal: isConference ? undefined : sourceName,
           conference: isConference ? sourceName : undefined,
           publicationYear: data.publication_year || new Date().getFullYear(),
+          publicationDate: data.publication_date || (data.publication_year ? String(data.publication_year) : undefined),
           citationCount: data.cited_by_count || 0,
           keywords: keywords.length > 0 ? keywords : ["Research"],
           publisher: data.primary_location?.source?.host_organization_name || undefined,

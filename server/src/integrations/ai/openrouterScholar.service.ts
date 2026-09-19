@@ -113,6 +113,7 @@ REQUIREMENTS:
    - title: exact title of the publication
    - authors: list of authors (e.g. "${resolvedName || "Researcher"}, Co-Author A, Co-Author B")
    - year: integer publication year (e.g. 2024, 2023, 2022)
+   - publicationDate: exact publication date if known (e.g. "2024-05-18", "2024/05", or year)
    - journal: journal name or null
    - conference: conference name or null
    - citationCount: citation count (integer >= 0)
@@ -140,6 +141,7 @@ STRICT JSON ONLY FORMAT (Do NOT include markdown formatting or extra text):
       "title": "A State Space Approach for Link Mining in Complex Dynamic Networks",
       "authors": "${resolvedName || "Kushal Birla"}, Snehal Kamalapur",
       "year": 2018,
+      "publicationDate": "2018-04-12",
       "journal": "International Journal of Engineering Technology and Computer Science",
       "conference": null,
       "citationCount": 35,
@@ -229,6 +231,7 @@ STRICT JSON ONLY FORMAT (Do NOT include markdown formatting or extra text):
           title: String(pub.title || "Untitled Research Publication").trim(),
           authors: String(pub.authors || resolvedName || "Faculty Author").trim(),
           year: pubYear,
+          publicationDate: pub.publicationDate ? String(pub.publicationDate).trim() : (pubYear ? String(pubYear) : undefined),
           journal: pub.journal ? String(pub.journal).trim() : undefined,
           conference: pub.conference ? String(pub.conference).trim() : undefined,
           citationCount: cCount,

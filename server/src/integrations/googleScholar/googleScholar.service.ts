@@ -5,6 +5,7 @@ import type { GoogleScholarProfilePreview, ScholarPublicationPreview } from "./g
 import { extractScholarAuthorId } from "./googleScholar.utils.js";
 import { ScholarNormalizationService } from "./scholarNormalization.service.js";
 import { OpenRouterScholarService, type ScholarFetchHint } from "../ai/openrouterScholar.service.js";
+import { normalizePublicationDate } from "../../utils/dateFormatter.js";
 
 export function extractPublicationYear(
   rawYear?: any,
@@ -81,6 +82,7 @@ export class GoogleScholarService {
             title: art.title || "Untitled Paper",
             authors: art.authors || "Unknown Authors",
             year: extractPublicationYear(art.year, art.publication, art.snippet, art.title),
+            publicationDate: art.publication_date || (art.year ? String(art.year) : undefined),
             journal: art.publication || undefined,
             citationCount: art.cited_by?.value ? Number(art.cited_by.value) : 0,
             snippet: art.snippet || undefined,
@@ -144,6 +146,48 @@ export class GoogleScholarService {
     };
   }
 
+  /**
+   * Fetches full citation details directly from Google Scholar via SerpApi
+   * Returns exact publication_date (e.g. "2025/1/17"), full authors, venue, description
+   */
+  static async fetchCitationDetail(citationId: string): Promise<{
+    publicationDate?: string;
+    authors?: string;
+    conference?: string;
+    journal?: string;
+    publisher?: string;
+    description?: string;
+    link?: string;
+  } | null> {
+    const apiKey = process.env.SERP_API_KEY;
+    if (!apiKey || !citationId) return null;
+
+    try {
+      const citeUrl = `https://serpapi.com/search.json?engine=google_scholar_author&view_op=view_citation&citation_id=${encodeURIComponent(
+        citationId
+      )}&api_key=${apiKey}`;
+
+      const res = await fetch(citeUrl);
+      if (!res.ok) return null;
+
+      const data: any = await res.json();
+      const citation = data.citation;
+      if (!citation) return null;
+
+      return {
+        publicationDate: citation.publication_date ? normalizePublicationDate(citation.publication_date) || citation.publication_date : undefined,
+        authors: citation.authors,
+        conference: citation.conference,
+        journal: citation.journal,
+        publisher: citation.publisher,
+        description: citation.description,
+        link: citation.link,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   static async syncFacultyProfile(facultyId: string, inputScholarUrlOrId: string) {
     const faculty = await prisma.faculty.findUnique({
       where: { id: facultyId },
@@ -178,6 +222,7 @@ export class GoogleScholarService {
         let resolvedDoi = pub.doi || null;
         let venueJournal = pub.journal || null;
         let venueConference = pub.conference || null;
+        let resolvedPublicationDate = pub.publicationDate || (pub.year ? String(pub.year) : null);
 
         let fetchedMeta: any | null = null;
         // Only resolve OpenAlex metadata if pub has an explicit DOI (prevents false DOI assignment)
@@ -209,6 +254,7 @@ export class GoogleScholarService {
             if (fetchedMeta.journal) venueJournal = fetchedMeta.journal;
             if (fetchedMeta.conference) venueConference = fetchedMeta.conference;
             if (fetchedMeta.doi) resolvedDoi = fetchedMeta.doi;
+            if (fetchedMeta.publicationDate) resolvedPublicationDate = fetchedMeta.publicationDate;
             if (fetchedMeta.authors && fetchedMeta.authors.length > 0 && matchesFaculty) {
               openAlexAuthors = fetchedMeta.authors;
             }
@@ -309,6 +355,7 @@ export class GoogleScholarService {
               citationCount: Math.max(existingResearch.citationCount, pub.citationCount),
               journal: venueJournal || existingResearch.journal,
               conference: venueConference || existingResearch.conference,
+              publicationDate: resolvedPublicationDate || existingResearch.publicationDate,
             },
           });
         } else {
@@ -323,6 +370,7 @@ export class GoogleScholarService {
               journal: venueJournal,
               conference: venueConference,
               publicationYear: pub.year || new Date().getFullYear(),
+              publicationDate: resolvedPublicationDate,
               citationCount: pub.citationCount,
               pdfUrl: pub.link || null,
               status: "PUBLISHED",

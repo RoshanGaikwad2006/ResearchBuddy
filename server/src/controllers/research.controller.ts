@@ -17,11 +17,12 @@ export const getMyResearches = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    const { search, status, publicationYear, page, limit } = req.query;
+    const { search, status, publicationYear, month, page, limit } = req.query;
     const result = await ResearchService.listMyResearches(req.user.id, {
       search: search as string | undefined,
       status: status as ResearchStatus | undefined,
       publicationYear: publicationYear ? Number(publicationYear) : undefined,
+      month: month ? (isNaN(Number(month)) ? undefined : Number(month)) : undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 100,
     });
@@ -116,7 +117,7 @@ export const getResearchById = async (req: AuthenticatedRequest, res: Response):
 
 export const listResearches = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { search, status, departmentId, publicationYear, createdById, page, limit } = req.query;
+    const { search, status, departmentId, publicationYear, month, createdById, page, limit } = req.query;
 
     let targetCreatedById = createdById as string | undefined;
     if (req.user?.role !== "ADMIN" && req.user?.role !== "RESEARCH_CELL" && !targetCreatedById) {
@@ -128,6 +129,7 @@ export const listResearches = async (req: AuthenticatedRequest, res: Response): 
       status: status as ResearchStatus | undefined,
       departmentId: departmentId as string | undefined,
       publicationYear: publicationYear ? Number(publicationYear) : undefined,
+      month: month ? (isNaN(Number(month)) ? undefined : Number(month)) : undefined,
       createdById: targetCreatedById,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 10,
@@ -235,4 +237,36 @@ export const refreshResearchCitationsController = async (req: AuthenticatedReque
     res.status(400).json({ message: error.message || "Failed to refresh citations via OpenRouter" });
   }
 };
+
+export const enrichResearchDateController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = getParamId(req.params.id);
+    if (!id) {
+      res.status(400).json({ message: "Research ID required" });
+      return;
+    }
+
+    const updated = await ResearchService.enrichPublicationDate(id);
+    res.status(200).json({
+      message: "Publication date enriched successfully",
+      research: updated,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message || "Failed to enrich publication date" });
+  }
+};
+
+export const enrichAllDatesController = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const targetUserId = req.user?.role === "ADMIN" || req.user?.role === "RESEARCH_CELL" ? undefined : req.user?.id;
+    const result = await ResearchService.enrichAllMissingDates(targetUserId);
+    res.status(200).json({
+      message: `Enriched ${result.enrichedCount} of ${result.totalCandidates} publications with verified publication dates`,
+      ...result,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || "Failed to enrich publication dates" });
+  }
+};
+
 

@@ -20,6 +20,7 @@ dist-ssr
 !.env.example
 server/.env
 !server/.env.example
+server/src/scratch/
 
 # Wrangler / Cloudflare
 .wrangler/

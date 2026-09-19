@@ -1,6 +1,7 @@
 import { prisma } from "../config/db.js";
 import type { Role } from "@prisma/client";
 import { parseAuthorRoles, formatAuthorsSummaryString } from "../utils/authorFormatter.js";
+import { buildPrismaMonthFilter, formatDisplayDate } from "../utils/dateFormatter.js";
 
 export interface ReportFilterPayload {
   reportType: string;
@@ -8,6 +9,9 @@ export interface ReportFilterPayload {
   facultyId?: string;
   yearStart?: number;
   yearEnd?: number;
+  monthFilter?: number | string;
+  monthStart?: number;
+  monthEnd?: number;
   researchArea?: string;
   status?: string;
   journalOrConference?: "JOURNAL" | "CONFERENCE" | "ALL";
@@ -19,6 +23,8 @@ export interface ReportFilterPayload {
   sorting?:
     | "year_desc"
     | "year_asc"
+    | "date_desc"
+    | "date_asc"
     | "citations_desc"
     | "citations_asc"
     | "title_asc"
@@ -53,7 +59,7 @@ export class ReportService {
         title: "Comprehensive Institutional Research Report",
         category: "Institutional",
         description: "Full institutional research portfolio across all departments, faculty, and research areas.",
-        defaultColumns: ["title", "authors", "department", "journal", "publicationYear", "citationCount", "status", "doi"],
+        defaultColumns: ["title", "authors", "department", "journal", "publicationYear", "publicationDate", "citationCount", "status", "doi"],
       },
       {
         id: "DEPARTMENT_RESEARCH",
@@ -121,6 +127,9 @@ export class ReportService {
       facultyId,
       yearStart,
       yearEnd,
+      monthFilter,
+      monthStart,
+      monthEnd,
       researchArea,
       status,
       journalOrConference,
@@ -349,6 +358,14 @@ export class ReportService {
       if (yearEnd) where.publicationYear.lte = Number(yearEnd);
     }
 
+    if (monthFilter && monthFilter !== "ALL") {
+      const m = Number(monthFilter);
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        const mFilter = buildPrismaMonthFilter(m, yearStart && yearStart === yearEnd ? Number(yearStart) : undefined);
+        where.AND = where.AND ? [...where.AND, mFilter] : [mFilter];
+      }
+    }
+
     if (researchArea) {
       where.researchArea = { contains: researchArea, mode: "insensitive" };
     }
@@ -379,6 +396,8 @@ export class ReportService {
     // Sorting
     let orderBy: any = [{ publicationYear: "desc" }, { citationCount: "desc" }];
     if (sorting === "year_asc") orderBy = [{ publicationYear: "asc" }, { citationCount: "desc" }];
+    if (sorting === "date_desc") orderBy = [{ publicationDate: "desc" }, { publicationYear: "desc" }, { citationCount: "desc" }];
+    if (sorting === "date_asc") orderBy = [{ publicationDate: "asc" }, { publicationYear: "asc" }, { citationCount: "desc" }];
     if (sorting === "citations_desc") orderBy = [{ citationCount: "desc" }, { publicationYear: "desc" }];
     if (sorting === "citations_asc") orderBy = [{ citationCount: "asc" }, { publicationYear: "desc" }];
     if (sorting === "title_asc") orderBy = [{ title: "asc" }];
@@ -591,6 +610,7 @@ export class ReportService {
         conference: item.conference || "N/A",
         venueType: item.journal ? "Journal" : item.conference ? "Conference" : "Journal Article",
         publicationYear: item.publicationYear,
+        publicationDate: formatDisplayDate(item.publicationDate, item.publicationYear),
         abstract: abstractText,
         abstractSource: abstractSourceTag,
         abstractSrcRaw,
@@ -653,6 +673,7 @@ export class ReportService {
       conference: "Conference",
       venueType: "Venue Type",
       publicationYear: "Publication Year",
+      publicationDate: "Publication Date",
       abstract: "Paper Abstract",
       abstractSource: "Abstract Source Tag",
       doi: "DOI Handle",
@@ -754,6 +775,7 @@ export class ReportService {
       conference: "Conference",
       venueType: "Venue Type",
       publicationYear: "Year",
+      publicationDate: "Publication Date",
       abstract: "Paper Abstract",
       abstractSource: "Abstract Source Tag",
       doi: "DOI Handle",

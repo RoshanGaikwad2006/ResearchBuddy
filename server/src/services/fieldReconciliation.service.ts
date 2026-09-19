@@ -1,3 +1,5 @@
+import { normalizePublicationDate } from "../utils/dateFormatter.js";
+
 export type SourceType = "MANUAL_KRIYA" | "OPENALEX" | "CROSSREF" | "GOOGLE_SCHOLAR" | "RECONCILED";
 
 export interface FieldProvenance<T = any> {
@@ -16,6 +18,7 @@ export interface PublicationCandidates {
     citationCount?: number;
     authors?: string[];
     publicationYear?: number;
+    publicationDate?: string;
   };
   openAlex?: {
     title?: string;
@@ -25,6 +28,7 @@ export interface PublicationCandidates {
     citationCount?: number;
     authors?: string[];
     publicationYear?: number;
+    publicationDate?: string;
   };
   crossref?: {
     title?: string;
@@ -34,6 +38,7 @@ export interface PublicationCandidates {
     citationCount?: number;
     authors?: string[];
     publicationYear?: number;
+    publicationDate?: string;
   };
   scholar?: {
     title?: string;
@@ -43,6 +48,7 @@ export interface PublicationCandidates {
     citationCount?: number;
     authors?: string[];
     publicationYear?: number;
+    publicationDate?: string;
   };
 }
 
@@ -59,6 +65,7 @@ export interface ReconciledMasterRecord {
   patentNumber?: string;
   isbn?: string;
   publicationYear: FieldProvenance<number>;
+  publicationDate: FieldProvenance<string | null>;
   authors: FieldProvenance<string[]>;
   isJournal: boolean;
   provenanceSummary: string;
@@ -226,7 +233,32 @@ export class FieldReconciliationService {
       source: candidates.openAlex?.publicationYear ? "OPENALEX" : candidates.scholar?.publicationYear ? "GOOGLE_SCHOLAR" : "CROSSREF",
     };
 
-    // 7. AUTHORS RECONCILIATION
+    // 7. PUBLICATION DATE RECONCILIATION
+    // Priority: Scholar (if exact date) -> OpenAlex (if exact date) -> Crossref -> Manual -> Fallback Year
+    const rawDateCandidate =
+      candidates.scholar?.publicationDate ||
+      candidates.openAlex?.publicationDate ||
+      candidates.crossref?.publicationDate ||
+      candidates.manual?.publicationDate;
+
+    const dateSource: SourceType = candidates.scholar?.publicationDate
+      ? "GOOGLE_SCHOLAR"
+      : candidates.openAlex?.publicationDate
+      ? "OPENALEX"
+      : candidates.crossref?.publicationDate
+      ? "CROSSREF"
+      : candidates.manual?.publicationDate
+      ? "MANUAL_KRIYA"
+      : "RECONCILED";
+
+    const normalizedDate = normalizePublicationDate(rawDateCandidate, selectedYear.value);
+
+    let selectedPublicationDate: FieldProvenance<string | null> = {
+      value: normalizedDate,
+      source: dateSource,
+    };
+
+    // 8. AUTHORS RECONCILIATION
     const authorList = candidates.openAlex?.authors || candidates.crossref?.authors || candidates.scholar?.authors || candidates.manual?.authors || [];
     let selectedAuthors: FieldProvenance<string[]> = {
       value: authorList,
@@ -252,6 +284,7 @@ export class FieldReconciliationService {
       patentNumber: classification.patentNumber,
       isbn: classification.isbn,
       publicationYear: selectedYear,
+      publicationDate: selectedPublicationDate,
       authors: selectedAuthors,
       isJournal,
       provenanceSummary: `Reconciled Master Record (Abstract: ${selectedAbstract.source}, Citations: ${selectedCitations.source}, DOI: ${selectedDoi.source}, Type: ${classification.venueType})`,

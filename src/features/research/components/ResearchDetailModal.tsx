@@ -8,11 +8,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X, FolderGit2 } from "lucide-react";
+import { ExternalLink, FileText, CheckCircle2, Clock3, XCircle, AlertCircle, Quote, Building2, Pencil, Check, X, FolderGit2, Calendar } from "lucide-react";
 import type { ResearchItem, ResearchAuthorItem } from "@/services/research.service";
 import { updateResearchApi } from "@/services/research.service";
 import { updateAuthorAffiliationApi } from "@/services/faculty.service";
 import { getGoogleScholarUrl } from "@/utils/scholarLink";
+import { formatPublicationDate } from "@/utils/formatDate";
 
 interface ResearchDetailModalProps {
   open: boolean;
@@ -137,9 +138,12 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {getStatusBadge(research.status)}
-              <span className="text-xs text-muted-foreground">Year: {research.publicationYear}</span>
+              <span className="text-xs text-foreground font-medium flex items-center gap-1.5 bg-blue-500/10 text-blue-700 border border-blue-500/20 px-2.5 py-1 rounded-md">
+                <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                Date: {formatPublicationDate(research.publicationDate, research.publicationYear)}
+              </span>
             </div>
 
             <a
@@ -321,6 +325,19 @@ export function ResearchDetailModal({ open, onOpenChange, research }: ResearchDe
               </div>
               <p className="font-semibold text-primary mt-0.5 flex items-center gap-1">
                 <Quote className="h-3 w-3" /> {research.citationCount || 0} Citations
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Publication Date:</span>
+                <Badge variant="outline" className="text-[9px] text-blue-700 bg-blue-500/10 border-blue-500/30">
+                  {research.publicationDate ? "✓ Verified Date" : "Year Only"}
+                </Badge>
+              </div>
+              <p className="font-semibold text-foreground mt-0.5 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                {formatPublicationDate(research.publicationDate, research.publicationYear)}
               </p>
             </div>
           </div>

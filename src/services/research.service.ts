@@ -36,6 +36,7 @@ export interface ResearchItem {
   patentNumber?: string;
   isbn?: string;
   publicationYear: number;
+  publicationDate?: string;
   pdfUrl?: string;
   citationCount: number;
   status: ResearchStatusType;
@@ -87,6 +88,7 @@ export const fetchMyResearches = async (params?: {
   search?: string | undefined;
   status?: ResearchStatusType | undefined;
   publicationYear?: number | undefined;
+  month?: number | string | undefined;
   page?: number | undefined;
   limit?: number | undefined;
 }): Promise<ResearchListResponse> => {
@@ -99,6 +101,7 @@ export const fetchResearchList = async (params?: {
   status?: ResearchStatusType | undefined;
   departmentId?: string | undefined;
   publicationYear?: number | undefined;
+  month?: number | string | undefined;
   createdById?: string | undefined;
   page?: number | undefined;
   limit?: number | undefined;
@@ -129,3 +132,20 @@ export const deleteResearchApi = async (id: string): Promise<{ message: string }
   const response = await apiClient.delete<{ message: string }>(`/researches/${id}`);
   return response.data;
 };
+
+export const enrichAllPublicationDatesApi = async (): Promise<{
+  message: string;
+  totalCandidates: number;
+  enrichedCount: number;
+}> => {
+  const response = await apiClient.post("/researches/enrich-all-dates");
+  return response.data;
+};
+
+export const enrichPublicationDateApi = async (
+  id: string
+): Promise<{ message: string; research: ResearchItem }> => {
+  const response = await apiClient.post(`/researches/${id}/enrich-date`);
+  return response.data;
+};
+
